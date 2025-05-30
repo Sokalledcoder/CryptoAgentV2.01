@@ -32,24 +32,25 @@
 *   **MCP Tool Integration**: **Real Fear & Greed, CoinGecko, and Perplexity MCP tools are now integrated into Sentiment and News agents.** Simulated RAG/Image processing placeholders remain for other agents.
 *   **JSON Schema Compliance**: Each agent follows strict JSON output schemas as defined in user prompts.
 *   **Error Handling**: Comprehensive error handling and validation within each agent.
-*   **Session Management**: ADK Runner session creation confirmed appropriate for stateless backend.
+*   **Session Management**: ADK Runner session creation confirmed appropriate for stateless backend. **Global ADK Runner instance implemented in `main.py` to resolve session errors.**
 *   **CopilotKit Action Integration**: Successfully integrated ADK orchestrator with CopilotKit action system.
+*   **ADK Import Paths**: Corrected `AgentTool` import paths in `sentiment_agent.py`, `news_agent.py`, `momentum_agent.py`, and `derivatives_agent.py`.
 
 **3. Relevant Files and Code (Current State - Major Updates):**
 *   **UPDATED: `backend/agents/context_agent.py`:** Enhanced with proper tool integration and validation.
 *   **UPDATED: `backend/agents/structure_agent.py`:** Market structure analysis with AlgoAlpha signals, Monday Range, swing points.
 *   **UPDATED: `backend/agents/ranges_agent.py`:** LuxAlgo Predictive Ranges analysis with price interaction validation.
 *   **UPDATED: `backend/agents/liquidity_agent.py`:** Liquidity analysis with FVGs, Order Blocks, breakout signals.
-*   **NEW: `backend/agents/momentum_agent.py`:** Momentum analysis with Kalman, Volume Delta, MOAK (placeholder for RAG/Image).
-*   **NEW: `backend/agents/derivatives_agent.py`:** Derivatives analysis with OI, Liquidations, Funding Rate, CVD (placeholder for RAG/Image).
-*   **UPDATED: `backend/agents/sentiment_agent.py`:** Sentiment and macro analysis with **real Fear & Greed and CoinGecko MCP tools.**
-*   **UPDATED: `backend/agents/news_agent.py`:** News research and sentiment analysis with **real Perplexity MCP tool.**
+*   **UPDATED: `backend/agents/momentum_agent.py`:** Momentum analysis with Kalman, Volume Delta, MOAK (placeholder for RAG/Image). **Corrected `AgentTool` import.**
+*   **UPDATED: `backend/agents/derivatives_agent.py`:** Derivatives analysis with OI, Liquidations, Funding Rate, CVD (placeholder for RAG/Image). **Corrected `AgentTool` import.**
+*   **UPDATED: `backend/agents/sentiment_agent.py`:** Sentiment and macro analysis with **real Fear & Greed and CoinGecko MCP tools.** **Corrected `AgentTool` import.**
+*   **UPDATED: `backend/agents/news_agent.py`:** News research and sentiment analysis with **real Perplexity MCP tool.** **Corrected `AgentTool` import.**
 *   **NEW: `backend/agents/tradesetup_agent.py`:** Trade setup synthesis.
 *   **NEW: `backend/agents/confidencerisk_agent.py`:** Confidence and risk assessment with Win Probability calculation.
 *   **NEW: `backend/agents/actionplan_agent.py`:** Action plan definition and invalidation triggers.
 *   **NEW: `backend/agents/finalpackage_agent.py`:** Final report assembly, validation, and summarization.
 *   **UPDATED: `backend/agents/orchestrator_agent.py`:** Now orchestrates ALL 12 specialized agents in sequence.
-*   **UPDATED: `backend/main.py`:** Fixed JSON serialization, added session management, proper ADK Runner configuration.
+*   **UPDATED: `backend/main.py`:** Fixed JSON serialization, **implemented global ADK Runner for session management.**
 *   **WORKING: `copilotkit-runtime-node/src/app/api/copilotkit/route.ts`:** PatchedRuntime subclass with Gemini adapter.
 *   **WORKING: `copilotkit-react-frontend/src/App.tsx`:** React frontend with CopilotChat component.
 
@@ -58,7 +59,8 @@
 *   **Tool Integration**: **Integrated real Fear & Greed, CoinGecko, and Perplexity MCP tools into Sentiment and News agents.** Simulated RAG/Image processing placeholders remain for other agents.
 *   **Agent Orchestration**: Successfully integrated all 12 agents into orchestrator workflow using AgentTool pattern.
 *   **Action Execution**: Resolved JSON serialization issues and confirmed end-to-end action triggering.
-*   **Session Management**: Confirmed current ADK Runner session creation is appropriate for stateless backend.
+*   **Session Management**: **Resolved ADK Runner "Session not found" error by globalizing Runner instance in `main.py`.**
+*   **Import Path Correction**: Corrected `AgentTool` import paths in multiple agent files.
 
 **5. Pending Tasks and Next Steps (for the new session/chat):**
 1.  **Image Processing**: Implement chart image upload and processing capabilities for agents requiring visual analysis (Context, Momentum, Derivatives).

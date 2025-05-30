@@ -14,7 +14,7 @@ class Agent7_News_Output(BaseModel):
     notes: Optional[str] = Field(None, description="Additional notes, conflict warnings, or notes on irrelevant searches")
 
 from google.adk.agent import Agent
-from google.adk.agent_tool import AgentTool
+from google.adk.tools.agent_tool import AgentTool # Corrected import path for AgentTool
 from google.adk.side_effects import ToolCode
 import json
 import re

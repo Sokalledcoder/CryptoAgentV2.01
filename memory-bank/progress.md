@@ -50,33 +50,35 @@
     *   User has provided initial documents for the RAG knowledge base. (Carried Over)
     *   User has provided an example workspace output. (Carried Over)
 *   **All 12 Specialized ADK Agents Implemented (Phase 1 Complete):**
-    *   **Agent 5: Momentum Analysis** (`backend/agents/momentum_agent.py`) - Implemented with simulated RAG/Image processing.
-    *   **Agent 5b: Derivatives Analysis** (`backend/agents/derivatives_agent.py`) - Implemented with simulated RAG/Image processing.
-    *   **Agent 7: News Analysis** (`backend/agents/news_agent.py`) - **Integrated real Perplexity MCP tool.**
+    *   **Agent 5: Momentum Analysis** (`backend/agents/momentum_agent.py`) - Implemented with simulated RAG/Image processing. **Corrected `AgentTool` import.**
+    *   **Agent 5b: Derivatives Analysis** (`backend/agents/derivatives_agent.py`) - Implemented with simulated RAG/Image processing. **Corrected `AgentTool` import.**
+    *   **Agent 7: News Analysis** (`backend/agents/news_agent.py`) - **Integrated real Perplexity MCP tool.** **Corrected `AgentTool` import.**
     *   **Agent 8: Trade Setup Analysis** (`backend/agents/tradesetup_agent.py`) - Implemented as a synthesizer.
     *   **Agent 9: Confidence & Risk Analysis** (`backend/agents/confidencerisk_agent.py`) - Implemented with weighted WP calculation.
     *   **Agent 10: Action Plan Analysis** (`backend/agents/actionplan_agent.py`) - Implemented with action steps and invalidation triggers.
     *   **Agent 11: Final Package Assembly** (`backend/agents/finalpackage_agent.py`) - Implemented for final report generation.
-    *   **Agent 6: Sentiment Analysis** (`backend/agents/sentiment_agent.py`) - **Integrated real Fear & Greed and CoinGecko MCP tools.**
+    *   **Agent 6: Sentiment Analysis** (`backend/agents/sentiment_agent.py`) - **Integrated real Fear & Greed and CoinGecko MCP tools.** **Corrected `AgentTool` import.**
     *   **Orchestrator Agent** (`backend/agents/orchestrator_agent.py`) - Updated to orchestrate all 12 agents.
-    *   **Session Management** (`backend/main.py`) - Confirmed current ADK Runner session creation is appropriate for stateless backend.
+    *   **Session Management** (`backend/main.py`) - **Resolved "Session not found" error by globalizing ADK Runner instance.**
+*   **ADK Import Path Corrections:** Corrected `AgentTool` import paths in `sentiment_agent.py`, `news_agent.py`, `momentum_agent.py`, and `derivatives_agent.py`.
 
 ## 2. What's Left to Build / In Progress (Next Steps)
 
 *   **Image Processing**: Implement chart image upload and processing capabilities for agents requiring visual analysis (Context, Momentum, Derivatives).
 *   **RAG System Integration**: Connect actual knowledge base for enhanced analysis for agents requiring document search (Momentum, Derivatives).
-*   **Testing and Refinement**: Test complete 12-agent workflow with real MCP tools and refine outputs.
+*   **Testing and Refinement**: Test complete 12-agent workflow with real MCP tools and refine outputs. Address any remaining import issues (e.g., `google.adk.side_effects`).
 *   **Further MCP Integration**: Integrate real MCP tools for other agents as needed (e.g., CoinGecko for price data in Context Agent).
 *   **Memory Bank Maintenance:** Continue to update all Memory Bank files with new learnings, decisions, and progress.
 
 ## 3. Current Status
 
-*   **Overall:** All 12 specialized ADK agents are implemented (with placeholders for RAG/Image processing). Orchestrator is updated to call all agents in sequence. Real MCP tools are integrated for Sentiment and News agents. The end-to-end message flow from React UI to ADK agents is confirmed working.
-*   **Blocker:** No immediate blockers for current phase. Next major steps are Image Processing and RAG integration.
+*   **Overall:** All 12 specialized ADK agents are implemented (with placeholders for RAG/Image processing). Orchestrator is updated to call all agents in sequence. Real MCP tools are integrated for Sentiment and News agents. The end-to-end message flow from React UI to ADK agents is confirmed working. Session management in `main.py` has been improved.
+*   **Blocker:** `ModuleNotFoundError: No module named 'google.adk.side_effects'` when running `uvicorn`. This needs to be resolved.
 *   **Risks:**
     *   Complexity of integrating real image processing and RAG systems.
     *   Potential for unforeseen issues during comprehensive end-to-end testing with all 12 agents and real MCP tools.
     *   Maintaining performance and responsiveness with increased agent complexity and external API calls.
+    *   Resolving the persistent `google.adk.side_effects` import error.
 
 ## 4. Evolution of Project Decisions
 
@@ -92,6 +94,8 @@
     *   Method for constructing `new_message` for `Runner.run_async` (ADK v1.1.1) using custom Pydantic models confirmed.
     *   All agents confirmed working with `gemini-2.5-flash-preview-05-20` when tested via `adk web`.
 *   **MCP Tool Integration:** Real Fear & Greed, CoinGecko, and Perplexity MCP tools are now integrated into Sentiment and News agents, replacing simulated functions.
+*   **ADK Session Management:** Moved ADK Runner and SessionService instantiation to global scope in `main.py` to resolve "Session not found" errors.
+*   **ADK Import Paths:** Corrected `AgentTool` import paths in `sentiment_agent.py`, `news_agent.py`, `momentum_agent.py`, and `derivatives_agent.py`. The `google.adk.side_effects` import for `ToolCode` is still causing issues.
 *   **CopilotKit Versioning & API Nuances:**
     *   Significant learnings regarding API changes and type definitions (e.g., `CopilotRuntimeChatCompletionResponse` being `Response & { threadId: string; }`) across `@copilotkit/runtime` versions. The "Decoder Ring" was vital.
     *   The constructor patch for `CopilotRuntime` in `copilotkit-runtime-node/src/app/api/copilotkit/route.ts` is the current configuration for enabling LLM-driven remote action dispatch with `@copilotkit/runtime@^1.8.14-next.2`.

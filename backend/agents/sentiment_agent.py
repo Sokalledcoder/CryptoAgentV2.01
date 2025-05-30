@@ -1,5 +1,5 @@
 from google.adk.agents import LlmAgent
-from google.adk.agent_tool import AgentTool # Import AgentTool for MCP calls
+from google.adk.tools.agent_tool import AgentTool # Corrected import path for AgentTool
 from google.adk.side_effects import ToolCode # Import ToolCode for MCP calls
 from typing import Dict, Any
 

@@ -19,6 +19,11 @@ from backend.adk_message_types import create_simple_text_content
 from copilotkit import CopilotKitRemoteEndpoint, Action
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 
+# Initialize ADK Runner and Session Service globally
+# This ensures they are created once and reused across requests
+session_service = InMemorySessionService()
+adk_runner = Runner(agent=orchestrator_agent, session_service=session_service, app_name="crypto_ta_backend")
+
 # For diagnostic logging middleware
 from fastapi import Request
 
@@ -93,19 +98,17 @@ async def adk_orchestrator_action_handler(**kwargs) -> dict:
 
     try:
         print("Attempting to run ADK Orchestrator Agent...")
-        session_service = InMemorySessionService()
-        runner = Runner(agent=orchestrator_agent, session_service=session_service, app_name="crypto_ta_backend")
         content = create_simple_text_content(query, role="user")
         print(f"ADK Runner: Invoking run_async with content: {content}")
 
         # Collect all ADK events into a result
         adk_results = []
         # Generate unique session ID for each request
-        import uuid
         session_id = f"crypto_session_{uuid.uuid4().hex[:8]}"
         user_id = "crypto_user"
         
-        async for adk_event in runner.run_async(new_message=content, user_id=user_id, session_id=session_id):
+        # Use the globally defined adk_runner
+        async for adk_event in adk_runner.run_async(new_message=content, user_id=user_id, session_id=session_id):
             print(f"ADK Event: {adk_event}")
             # Convert ADK event to serializable format
             if hasattr(adk_event, '__dict__'):
@@ -127,7 +130,7 @@ async def adk_orchestrator_action_handler(**kwargs) -> dict:
             "message": "Crypto TA analysis completed successfully",
             "query": query,
             "adk_events": adk_results,
-            "analysis_summary": "Multi-agent crypto analysis executed with 5 specialized agents"
+            "analysis_summary": "Multi-agent crypto analysis executed with all 12 specialized agents" # Updated summary
         }
         
         print(f"✅ HANDLER finished. Final result: {json.dumps(final_result, indent=2)}")
