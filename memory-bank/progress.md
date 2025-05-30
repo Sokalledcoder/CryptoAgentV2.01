@@ -1,6 +1,6 @@
 # Progress: Crypto TA Multi-Agent System
 
-**Version:** 0.12
+**Version:** 0.14
 **Date:** 2025-05-31
 
 ## 1. What Works / Completed
@@ -49,55 +49,49 @@
     *   User has provided documentation for MCP servers. (Carried Over)
     *   User has provided initial documents for the RAG knowledge base. (Carried Over)
     *   User has provided an example workspace output. (Carried Over)
+*   **All 12 Specialized ADK Agents Implemented (Phase 1 Complete):**
+    *   **Agent 5: Momentum Analysis** (`backend/agents/momentum_agent.py`) - Implemented with simulated RAG/Image processing.
+    *   **Agent 5b: Derivatives Analysis** (`backend/agents/derivatives_agent.py`) - Implemented with simulated RAG/Image processing.
+    *   **Agent 7: News Analysis** (`backend/agents/news_agent.py`) - **Integrated real Perplexity MCP tool.**
+    *   **Agent 8: Trade Setup Analysis** (`backend/agents/tradesetup_agent.py`) - Implemented as a synthesizer.
+    *   **Agent 9: Confidence & Risk Analysis** (`backend/agents/confidencerisk_agent.py`) - Implemented with weighted WP calculation.
+    *   **Agent 10: Action Plan Analysis** (`backend/agents/actionplan_agent.py`) - Implemented with action steps and invalidation triggers.
+    *   **Agent 11: Final Package Assembly** (`backend/agents/finalpackage_agent.py`) - Implemented for final report generation.
+    *   **Agent 6: Sentiment Analysis** (`backend/agents/sentiment_agent.py`) - **Integrated real Fear & Greed and CoinGecko MCP tools.**
+    *   **Orchestrator Agent** (`backend/agents/orchestrator_agent.py`) - Updated to orchestrate all 12 agents.
+    *   **Session Management** (`backend/main.py`) - Confirmed current ADK Runner session creation is appropriate for stateless backend.
 
 ## 2. What's Left to Build / In Progress (Next Steps)
 
-*   **Phase 1 - Manual End-to-End Test (CRITICAL NEXT STEP - System Ready):**
-    *   With the Node.js runtime LLM adapter now configured, the system is ready for a full E2E test.
-    *   Start all three servers (FastAPI backend at `http://localhost:8000`, Next.js runtime at `http://localhost:3000`, Vite frontend at `http://localhost:5173`).
-    *   Manually open `http://localhost:5173` in a browser.
-    *   Attempt to send a message (e.g., "Hello") using the `<CopilotChat />` UI.
-    *   **Verify:**
-        *   POST requests to `/copilotkit/info` from Node.js runtime to FastAPI backend occur.
-        *   When a message is sent from the UI, the Node.js runtime does not call `EmptyAdapter.process()` (it should now use `geminiAdapter` or directly invoke the remote action).
-        *   The FastAPI backend receives a `tool_calls` (or similar SDK-formatted) request to execute `runCryptoTaOrchestrator`.
-        *   The `adk_orchestrator_action_handler` in FastAPI is invoked and streams its response.
-        *   The Next.js runtime correctly processes this stream and the `this.callback is not a function` error (if previously occurring due to `EmptyAdapter`) is resolved.
-        *   The React frontend displays the streamed response.
-    *   Troubleshoot any issues. Consult the "Frontend sanity checklist" from the user's run-book if issues arise.
-*   **Phase 1 - Further Agent Development:** (Post successful E2E Test)
-    *   Begin development of the 12 specialized ADK Task Agents based on user-provided prompts.
-    *   Integrate these into the `OrchestratorAgent` (likely via `AgentTool`).
-    *   Implement MCP tool calls within these specialized agents.
+*   **Image Processing**: Implement chart image upload and processing capabilities for agents requiring visual analysis (Context, Momentum, Derivatives).
+*   **RAG System Integration**: Connect actual knowledge base for enhanced analysis for agents requiring document search (Momentum, Derivatives).
+*   **Testing and Refinement**: Test complete 12-agent workflow with real MCP tools and refine outputs.
+*   **Further MCP Integration**: Integrate real MCP tools for other agents as needed (e.g., CoinGecko for price data in Context Agent).
 *   **Memory Bank Maintenance:** Continue to update all Memory Bank files with new learnings, decisions, and progress.
-*   **Future Phases:** (Carried Over)
-    *   Refine inter-agent communication (potentially A2A protocol).
-    *   Integrate RAG system.
-    *   Advanced features, comprehensive testing, deployment planning.
 
 ## 3. Current Status
 
-*   **Overall:** Backend (FastAPI with CopilotKit Python SDK), Node.js CopilotKitRuntime (Next.js with `@copilotkit/runtime` at `^1.8.14-next.2`, configured with the constructor patch for `GoogleGenerativeAIAdapter`, and `remoteEndpoints`), and React/CopilotKit frontend are set up.
-*   **Blocker:** Node.js runtime LLM adapter configuration implemented using the constructor patch for `@copilotkit/runtime@^1.8.14-next.2`. The system is now ready for a decisive E2E test.
+*   **Overall:** All 12 specialized ADK agents are implemented (with placeholders for RAG/Image processing). Orchestrator is updated to call all agents in sequence. Real MCP tools are integrated for Sentiment and News agents. The end-to-end message flow from React UI to ADK agents is confirmed working.
+*   **Blocker:** No immediate blockers for current phase. Next major steps are Image Processing and RAG integration.
 *   **Risks:**
-    *   The constructor patch, while robust for 1.8.x behavior, is a workaround and might have unforeseen side effects or break with future non-major updates to the runtime if its internal structure changes.
-    *   The `next` tagged pre-release version (`^1.8.14-next.2`) might have its own instabilities.
-    *   Potential issues in the frontend's interaction with the CopilotKit SDK or the Node.js runtime during E2E testing.
-    *   Complexity of debugging the full three-tier communication flow.
+    *   Complexity of integrating real image processing and RAG systems.
+    *   Potential for unforeseen issues during comprehensive end-to-end testing with all 12 agents and real MCP tools.
+    *   Maintaining performance and responsiveness with increased agent complexity and external API calls.
 
 ## 4. Evolution of Project Decisions
 
 *   **Initial Plan (OpenAI Agents SDK):** Shifted to Google-centric stack (ADK, A2A). (Carried Over)
 *   **Backend AG-UI Streaming:** Shifted from manual SSE implementation to using the `copilotkit` Python SDK for FastAPI, which simplifies AG-UI compliance.
 *   **Frontend:** AG-UI with React/CopilotKit.
-*   **RAG:** Requirement confirmed, implementation details deferred.
-*   **Agent Structure:** 12-specialized-agent model.
-*   **ADK Agent Discovery/Invocation:** Refined understanding (`__init__.py`, `root_agent` for `adk web`; `Runner` for programmatic).
+*   **RAG:** Requirement confirmed, implementation details deferred. Placeholder `FileSearchTool` implemented in Momentum and Derivatives agents.
+*   **Agent Structure:** 12-specialized-agent model. All 12 agents are now implemented as distinct ADK agents.
+*   **ADK Agent Discovery/Invocation:** Refined understanding (`__init__.py`, `root_agent` for `adk web`; `Runner` for programmatic). All 12 agents are integrated into the Orchestrator via `AgentTool`.
 *   **Gemini Model Access:** Confirmed Google AI Studio API key (`GOOGLE_GENAI_USE_VERTEXAI=FALSE`).
 *   **CRITICAL CORRECTION - Namespace Package & ADK Provider & ADK Web/Tool Discovery:** (Carried Over - Still Relevant)
     *   Key import paths and tool definition methods for ADK v1.1.1 clarified.
     *   Method for constructing `new_message` for `Runner.run_async` (ADK v1.1.1) using custom Pydantic models confirmed.
     *   All agents confirmed working with `gemini-2.5-flash-preview-05-20` when tested via `adk web`.
+*   **MCP Tool Integration:** Real Fear & Greed, CoinGecko, and Perplexity MCP tools are now integrated into Sentiment and News agents, replacing simulated functions.
 *   **CopilotKit Versioning & API Nuances:**
     *   Significant learnings regarding API changes and type definitions (e.g., `CopilotRuntimeChatCompletionResponse` being `Response & { threadId: string; }`) across `@copilotkit/runtime` versions. The "Decoder Ring" was vital.
     *   The constructor patch for `CopilotRuntime` in `copilotkit-runtime-node/src/app/api/copilotkit/route.ts` is the current configuration for enabling LLM-driven remote action dispatch with `@copilotkit/runtime@^1.8.14-next.2`.

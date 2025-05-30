@@ -5,10 +5,37 @@ from backend.agents.structure_agent import root_agent as structure_agent_instanc
 from backend.agents.ranges_agent import root_agent as ranges_agent_instance
 from backend.agents.liquidity_agent import root_agent as liquidity_agent_instance
 from backend.agents.sentiment_agent import root_agent as sentiment_agent_instance
+from backend.agents.momentum_agent import MomentumAgent # Import the new MomentumAgent class
+from backend.agents.derivatives_agent import DerivativesAgent # Import the new DerivativesAgent class
+from backend.agents.news_agent import NewsAgent # Import the new NewsAgent class
+from backend.agents.tradesetup_agent import TradeSetupAgent # Import the new TradeSetupAgent class
+from backend.agents.confidencerisk_agent import ConfidenceRiskAgent # Import the new ConfidenceRiskAgent class
+from backend.agents.actionplan_agent import ActionPlanAgent # Import the new ActionPlanAgent class
+from backend.agents.finalpackage_agent import FinalPackageAgent # Import the new FinalPackageAgent class
 
 # Wrap the specialized agents as tools
 context_analysis_tool = AgentTool(
     agent=context_agent_instance
+)
+
+finalpackage_assembly_tool = AgentTool(
+    agent=FinalPackageAgent()
+)
+
+actionplan_analysis_tool = AgentTool(
+    agent=ActionPlanAgent()
+)
+
+confidencerisk_analysis_tool = AgentTool(
+    agent=ConfidenceRiskAgent()
+)
+
+tradesetup_analysis_tool = AgentTool(
+    agent=TradeSetupAgent()
+)
+
+news_analysis_tool = AgentTool(
+    agent=NewsAgent()
 )
 
 structure_analysis_tool = AgentTool(
@@ -21,6 +48,14 @@ ranges_analysis_tool = AgentTool(
 
 liquidity_analysis_tool = AgentTool(
     agent=liquidity_agent_instance
+)
+
+momentum_analysis_tool = AgentTool(
+    agent=MomentumAgent()
+)
+
+derivatives_analysis_tool = AgentTool(
+    agent=DerivativesAgent()
 )
 
 sentiment_analysis_tool = AgentTool(
@@ -38,7 +73,14 @@ you MUST execute the following workflow:
 2. SECOND: Use 'analyze_market_structure' tool to analyze market structure and Monday Range
 3. THIRD: Use 'analyze_predictive_ranges' tool to analyze LuxAlgo Predictive Ranges
 4. FOURTH: Use 'analyze_liquidity_orderflow' tool to analyze liquidity zones and order flow
-5. FIFTH: Use 'analyze_sentiment_macro' tool to get sentiment and macro data
+5. FIFTH: Use 'analyze_momentum_volume' tool to analyze momentum and volume indicators
+6. SIXTH: Use 'analyze_derivatives_data' tool to analyze derivatives indicators
+7. SEVENTH: Use 'analyze_news_sentiment' tool to research news and analyze sentiment
+8. EIGHTH: Use 'synthesize_trade_setup' tool to propose a trade setup
+9. NINTH: Use 'assess_confidence_risk' tool to assess confidence and risk for the trade setup
+10. TENTH: Use 'define_action_plan' tool to define action plan steps and invalidation triggers
+11. ELEVENTH: Use 'assemble_final_package' tool to assemble the final analysis report and summary
+12. TWELFTH: Use 'analyze_sentiment_macro' tool to get sentiment and macro data
 
 Pass the user's input to each tool. Each tool will return a JSON result.
 
@@ -51,6 +93,13 @@ Your final output should be a JSON object with the following structure:
   "step02_structure": <result from structure tool>,
   "step03_ranges": <result from ranges tool>,
   "step04_liquidity": <result from liquidity tool>,
+  "step05_momentum": <result from momentum tool>,
+  "step05b_derivatives": <result from derivatives tool>,
+  "step07_news": <result from news tool>,
+  "step08_tradesetup": <result from tradesetup tool>,
+  "step09_confidencerisk": <result from confidencerisk tool>,
+  "step10_actionplan": <result from actionplan tool>,
+  "step11_finalpackage": <result from finalpackage tool>,
   "step06_sentiment": <result from sentiment tool>,
   "analysis_summary": "Brief summary of key findings across all steps"
 }
@@ -66,6 +115,13 @@ root_agent = LlmAgent(
         structure_analysis_tool,
         ranges_analysis_tool,
         liquidity_analysis_tool,
+        momentum_analysis_tool,
+        derivatives_analysis_tool,
+        news_analysis_tool,
+        tradesetup_analysis_tool,
+        confidencerisk_analysis_tool,
+        actionplan_analysis_tool,
+        finalpackage_assembly_tool, # Added finalpackage tool
         sentiment_analysis_tool
     ]
 )

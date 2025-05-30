@@ -1,124 +1,27 @@
 from google.adk.agents import LlmAgent
+from google.adk.agent_tool import AgentTool # Import AgentTool for MCP calls
+from google.adk.side_effects import ToolCode # Import ToolCode for MCP calls
+from typing import Dict, Any
 
-# Define MCP tool functions for this agent
-async def mcp_fearandgreed_get_current(random_string: str = "dummy") -> dict:
-    """
-    Gets the current Fear and Greed Index value.
-    """
-    print(f"[SentimentAgent Tool] mcp_fearandgreed_get_current called")
-    # Simulate MCP call - in real implementation this would call the actual MCP server
-    return {
-        "value": 42,
-        "value_classification": "Fear",
-        "timestamp": 1735603200,
-        "time_until_update": "12 hours"
-    }
+# Define the Pydantic model for the output schema (assuming it's defined elsewhere or will be defined here)
+from pydantic import BaseModel, Field
+from typing import Optional
 
-async def mcp_fearandgreed_interpret_value(value: int) -> dict:
-    """
-    Interprets a Fear and Greed Index value.
-    """
-    print(f"[SentimentAgent Tool] mcp_fearandgreed_interpret_value called with value: {value}")
-    # Simulate interpretation based on value ranges
-    if value <= 25:
-        classification = "Extreme Fear"
-        interpretation = "Market is in extreme fear, potentially oversold conditions"
-    elif value <= 45:
-        classification = "Fear"
-        interpretation = "Market sentiment is fearful, caution advised"
-    elif value <= 55:
-        classification = "Neutral"
-        interpretation = "Market sentiment is neutral, balanced conditions"
-    elif value <= 75:
-        classification = "Greed"
-        interpretation = "Market sentiment is greedy, potential for correction"
-    else:
-        classification = "Extreme Greed"
-        interpretation = "Market is in extreme greed, potentially overbought"
-    
-    return {
-        "value": value,
-        "classification": classification,
-        "interpretation": interpretation
-    }
+class Agent6_Sentiment_Output(BaseModel):
+    fear_greed_value: Optional[int] = Field(None, description="Fear and Greed Index value")
+    fear_greed_rating: Optional[str] = Field(None, description="Fear and Greed Index rating")
+    historical_comparison_notes: Optional[str] = Field(None, description="Notes on historical comparison of Fear and Greed Index")
+    btc_dominance: Optional[float] = Field(None, description="Bitcoin Dominance percentage")
+    total_market_cap: Optional[str] = Field(None, description="Total crypto market capitalization")
+    notes: Optional[str] = Field(None, description="Additional notes or observations")
 
-async def mcp_fearandgreed_compare_with_historical(days: int = 30) -> dict:
-    """
-    Compares current Fear and Greed Index with historical data.
-    """
-    print(f"[SentimentAgent Tool] mcp_fearandgreed_compare_with_historical called with days: {days}")
-    # Simulate historical comparison
-    return {
-        "current_value": 42,
-        "average_last_30_days": 38,
-        "comparison": "Current value is 4 points higher than 30-day average",
-        "trend": "slightly_improving",
-        "notes": "Fear levels have decreased slightly over the past month"
-    }
-
-async def global_market_data(include_defi: bool = False) -> dict:
-    """
-    Gets global cryptocurrency market data including BTC dominance and total market cap.
-    """
-    print(f"[SentimentAgent Tool] global_market_data called with include_defi: {include_defi}")
-    # Simulate global market data
-    return {
-        "data": {
-            "active_cryptocurrencies": 15234,
-            "upcoming_icos": 0,
-            "ongoing_icos": 49,
-            "ended_icos": 3376,
-            "markets": 1058,
-            "total_market_cap": {
-                "btc": 35234567.89,
-                "eth": 1234567890.12,
-                "ltc": 45678901234.56,
-                "bch": 12345678901.23,
-                "bnb": 9876543210.98,
-                "eos": 8765432109.87,
-                "xrp": 7654321098.76,
-                "xlm": 6543210987.65,
-                "link": 5432109876.54,
-                "dot": 4321098765.43,
-                "yfi": 3210987654.32,
-                "usd": 3456789012345.67,
-                "aed": 12691234567890.12,
-                "ars": 3456789012345678.90
-            },
-            "total_volume": {
-                "btc": 1234567.89,
-                "eth": 12345678.90,
-                "ltc": 123456789.01,
-                "bch": 1234567890.12,
-                "bnb": 12345678901.23,
-                "eos": 123456789012.34,
-                "xrp": 1234567890123.45,
-                "xlm": 12345678901234.56,
-                "link": 123456789012345.67,
-                "dot": 1234567890123456.78,
-                "yfi": 12345678901234567.89,
-                "usd": 123456789012.34,
-                "aed": 453456789012345.67,
-                "ars": 12345678901234567890.12
-            },
-            "market_cap_percentage": {
-                "btc": 56.78,
-                "eth": 12.34,
-                "usdt": 5.67,
-                "bnb": 3.45,
-                "sol": 2.89,
-                "usdc": 2.34,
-                "xrp": 1.78,
-                "steth": 1.23,
-                "doge": 0.98,
-                "ada": 0.87
-            },
-            "market_cap_change_percentage_24h_usd": 2.34,
-            "updated_at": 1735603200
-        }
-    }
-
-AGENT_INSTRUCTION_SENTIMENT = """
+class SentimentAgent(LlmAgent):
+    def __init__(self):
+        super().__init__(
+            model="gemini-2.5-flash-preview-05-20",
+            name="analyze_sentiment_macro",
+            description="Analyzes market sentiment using Fear & Greed Index and global market data via MCP tools.",
+            instruction="""
 # 📈 Crypto TA Agent 6: Sentiment & Macro Analyzer (MCP + CoT Enabled)
 
 ## 🔒 SYSTEM-LEVEL DIRECTIVES
@@ -162,17 +65,94 @@ Your response MUST be ONLY the following JSON structure (after PLAN/REFLECT step
 }
 
 STOP: Generate ONLY the JSON object described above after completing the PLAN/REFLECT steps using the specified MCP tools.
-"""
+""",
+            output_model=Agent6_Sentiment_Output,
+            tools=[
+                AgentTool(
+                    name="mcp_fearandgreed_get_current",
+                    description="Gets the current Fear and Greed Index value.",
+                    tool_code=ToolCode.from_callable(self._call_mcp_fearandgreed_get_current),
+                    parameters={"type": "object", "properties": {"random_string": {"type": "string"}}}
+                ),
+                AgentTool(
+                    name="mcp_fearandgreed_interpret_value",
+                    description="Interprets a Fear and Greed Index value.",
+                    tool_code=ToolCode.from_callable(self._call_mcp_fearandgreed_interpret_value),
+                    parameters={"type": "object", "properties": {"value": {"type": "number"}}, "required": ["value"]}
+                ),
+                AgentTool(
+                    name="mcp_fearandgreed_compare_with_historical",
+                    description="Compares current Fear and Greed Index with historical data.",
+                    tool_code=ToolCode.from_callable(self._call_mcp_fearandgreed_compare_with_historical),
+                    parameters={"type": "object", "properties": {"days": {"type": "number"}}}
+                ),
+                AgentTool(
+                    name="global_market_data",
+                    description="Gets global cryptocurrency market data including BTC dominance and total market cap.",
+                    tool_code=ToolCode.from_callable(self._call_global_market_data),
+                    parameters={"type": "object", "properties": {"include_defi": {"type": "boolean"}}}
+                )
+            ]
+        )
 
-root_agent = LlmAgent(
-    model="gemini-2.5-flash-preview-05-20",
-    name="analyze_sentiment_macro",
-    description="Analyzes market sentiment using Fear & Greed Index and global market data via MCP tools.",
-    instruction=AGENT_INSTRUCTION_SENTIMENT,
-    tools=[
-        mcp_fearandgreed_get_current,
-        mcp_fearandgreed_interpret_value,
-        mcp_fearandgreed_compare_with_historical,
-        global_market_data
-    ]
-)
+    async def _call_mcp_fearandgreed_get_current(self, random_string: str = "dummy") -> Dict[str, Any]:
+        return await self.call_tool(
+            server_name="fearandgreed-mcp",
+            tool_name="mcp_fearandgreed_get_current",
+            arguments={"random_string": random_string}
+        )
+
+    async def _call_mcp_fearandgreed_interpret_value(self, value: int) -> Dict[str, Any]:
+        return await self.call_tool(
+            server_name="fearandgreed-mcp",
+            tool_name="mcp_fearandgreed_interpret_value",
+            arguments={"value": value}
+        )
+
+    async def _call_mcp_fearandgreed_compare_with_historical(self, days: int = 30) -> Dict[str, Any]:
+        return await self.call_tool(
+            server_name="fearandgreed-mcp",
+            tool_name="mcp_fearandgreed_compare_with_historical",
+            arguments={"days": days}
+        )
+
+    async def _call_global_market_data(self, include_defi: bool = False) -> Dict[str, Any]:
+        return await self.call_tool(
+            server_name="coingecko-mcp",
+            tool_name="global-market-data",
+            arguments={"include_defi": include_defi}
+        )
+
+    async def run(self, context_from_previous_steps: Dict[str, Any]) -> Agent6_Sentiment_Output:
+        print("PLAN: Calling Fear & Greed Index and CoinGecko global market data tools. Reflecting on results and generating structured JSON output.")
+
+        # TOOL CALLS
+        fg_current_result = await self._call_mcp_fearandgreed_get_current()
+        fg_value = fg_current_result.get('value')
+
+        fg_interpret_result = await self._call_mcp_fearandgreed_interpret_value(value=fg_value)
+        fg_historical_result = await self._call_mcp_fearandgreed_compare_with_historical()
+        global_market_result = await self._call_global_market_data()
+
+        # REFLECTION
+        fear_greed_value = fg_value
+        fear_greed_rating = fg_interpret_result.get('classification')
+        historical_comparison_notes = fg_historical_result.get('notes')
+
+        btc_dominance = global_market_result.get('data', {}).get('market_cap_percentage', {}).get('btc')
+        total_market_cap_usd = global_market_result.get('data', {}).get('total_market_cap', {}).get('usd')
+        total_market_cap_str = f"${total_market_cap_usd:,.2f}" if total_market_cap_usd else None
+
+        notes = "Sentiment and macro data retrieved from Fear & Greed Index and CoinGecko MCP servers."
+
+        # OUTPUT
+        return Agent6_Sentiment_Output(
+            fear_greed_value=fear_greed_value,
+            fear_greed_rating=fear_greed_rating,
+            historical_comparison_notes=historical_comparison_notes,
+            btc_dominance=btc_dominance,
+            total_market_cap=total_market_cap_str,
+            notes=notes
+        )
+
+root_agent = SentimentAgent()
