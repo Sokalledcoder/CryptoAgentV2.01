@@ -1,0 +1,19 @@
+{
+  "kalman_output": {
+    "oscillator_value": null,
+    "trend_strength_value": null,
+    "state_description": "The Kalman Trend Strength Oscillator is currently in a declining phase, with the oscillator line moving downward from a recent peak. The color gradient transitions from cyan to blue indicating weakening trend strength. The oscillator is below the zero line but above the -70 threshold, suggesting moderate bearish momentum without extreme oversold conditions. The blue zones and threshold levels imply the trend is weakening but not yet at a reversal point."
+  },
+  "volume_delta_output": {
+    "latest_delta_value": null,
+    "recent_pattern": "The Aggregated Volume Delta histogram shows mostly small bars oscillating around zero with no strong directional bias. The recent bars are slightly negative, indicating mild selling pressure, but the volume delta pattern is generally flat and lacks strong momentum confirmation. This suggests volume is neutral to mildly bearish without strong accumulation or distribution signals."
+  },
+  "moak_output": {
+    "fast_signal_value": null,
+    "slow_signal_value": null,
+    "state_description": "The Multi-Oscillator Adaptive Kernel (MOAK) shows both fast and slow signal lines below zero, with the slow line area fill colored magenta indicating bearish momentum. The fast line is slightly rising but remains negative, while the slow line is declining. No clear crossover or overbought/oversold extremes (+50/-50) are visible. The overall state indicates a bearish momentum phase with some potential weakening in selling pressure but no confirmed reversal."
+  },
+  "top_exchanges_description": "Not determinable from the chart.",
+  "divergence_flag": false,
+  "notes": "The combined momentum and volume indicators suggest a weakening bearish momentum in a ranging market phase. The Kalman oscillator shows moderate bearish trend strength without extreme oversold conditions. Volume delta is neutral to mildly bearish without strong confirmation. MOAK confirms bearish momentum with slow line below zero and no clear reversal signals. No significant divergence between price and indicators is observed."
+}

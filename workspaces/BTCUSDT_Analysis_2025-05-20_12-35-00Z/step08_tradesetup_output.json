@@ -1,0 +1,67 @@
+{
+  "direction": "short",
+  "entry": 104951.0,
+  "stop": 106500.0,
+  "take_profit": 104000.0,
+  "confirmations": [
+    {
+      "factor_type": "structure",
+      "description": "Primary: Market structure is ranging with recent bearish breakout signals (BOS_down and CHoCH_down) above current price, indicating potential downside pressure.",
+      "strength": "high"
+    },
+    {
+      "factor_type": "liquidity",
+      "description": "Primary: Presence of a strong bearish Fair Value Gap (FVG) between 106446.4 and 105246.8 and a bearish order block near 104800-104300 acting as resistance near current price.",
+      "strength": "high"
+    },
+    {
+      "factor_type": "momentum",
+      "description": "Confirmation: Momentum indicators (Kalman oscillator and MOAK) indicate weakening bearish momentum without reversal, volume delta mildly bearish but neutral overall.",
+      "strength": "medium"
+    },
+    {
+      "factor_type": "derivatives",
+      "description": "Confirmation: Derivatives data shows falling open interest with semi-bearish OI-price relation, slightly bullish but falling funding rate, falling CVD indicating mild selling pressure, and small recent long liquidations supporting cautious bearish bias.",
+      "strength": "medium"
+    },
+    {
+      "factor_type": "range",
+      "description": "Secondary: Price is inside the Monday range between MID and S1 levels, touching MID level, consistent with a ranging market but near resistance zone.",
+      "strength": "low"
+    },
+    {
+      "factor_type": "sentiment",
+      "description": "Secondary: Fear and Greed Index at 71 (Greed) indicates elevated bullish sentiment, which may limit upside and increase potential for pullback.",
+      "strength": "low"
+    },
+    {
+      "factor_type": "news",
+      "description": "Secondary: Mixed market news with bullish institutional and ETF support but cautious near all-time highs and minor profit-taking, aligning with resistance and potential short-term pullback.",
+      "strength": "low"
+    }
+  ],
+  "scenarios": [
+    {
+      "type": "alternative_bullish",
+      "description": "Price breaks above the bearish FVG and order block resistance zone near 105,246.8\u2013106,446.4, invalidating the short setup.",
+      "implication": "Could lead to continuation of bullish momentum and trend strength recovery."
+    },
+    {
+      "type": "risk_factor",
+      "description": "Derivatives risk: Falling funding rate and small long liquidations may reverse if funding turns strongly positive, causing a short squeeze.",
+      "implication": "Could cause rapid price spike above resistance, triggering stop losses on shorts."
+    },
+    {
+      "type": "invalidation_point",
+      "description": "Price closes decisively above 106,500 (above bearish FVG and order block zone).",
+      "implication": "Invalidates bearish breakout signals and short bias."
+    },
+    {
+      "type": "alternative_bearish",
+      "description": "Price fails to break resistance and moves below recent lows near 104,000 supported by bearish momentum and derivatives selling pressure.",
+      "implication": "Confirms bearish continuation with potential for further downside."
+    }
+  ],
+  "notes": "Trade setup prioritizes bearish structure and liquidity zones as primary factors, confirmed by moderate bearish momentum and derivatives data indicating mild selling pressure and position reduction. Secondary sentiment and news factors show elevated greed but mixed signals, supporting caution. Derivatives data notably confirms semi-bearish bias but with some risk of short squeeze if funding rate or OI dynamics shift.",
+  "rr_calculated_py": 0.61
+}

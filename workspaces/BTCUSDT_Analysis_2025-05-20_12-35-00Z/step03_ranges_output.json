@@ -1,0 +1,32 @@
+{
+  "levels": [
+    {
+      "level": "R2",
+      "price": 108845.4,
+      "approx": true
+    },
+    {
+      "level": "R1",
+      "price": 107645.9,
+      "approx": true
+    },
+    {
+      "level": "MID",
+      "price": 106446.4,
+      "approx": true
+    },
+    {
+      "level": "S1",
+      "price": 105246.8,
+      "approx": true
+    },
+    {
+      "level": "S2",
+      "price": 104047.3,
+      "approx": true
+    }
+  ],
+  "numeric_interaction_state": "inside_MID_S1",
+  "visual_touching_level": "MID",
+  "notes": null
+}

@@ -1,0 +1,24 @@
+{
+  "structure_phase": "ranging",
+  "major_swings": [
+    {
+      "type": "HH"
+    },
+    {
+      "type": "LL"
+    }
+  ],
+  "bos_event": {
+    "type": "BOS_down",
+    "position": "above"
+  },
+  "choch_event": {
+    "type": "CHoCH_down",
+    "position": "above"
+  },
+  "monday_status": {
+    "high": "above",
+    "low": "below"
+  },
+  "notes": "Market currently in ranging phase with last major swings as Higher High and Lower Low. Most recent BOS event is bearish (BOS_down) with price above the breakout line. Most recent CHoCH event is bearish (CHoCH_down) with price above the change of character line. Price is above the dotted Monday High line and below the dotted Monday Low line, indicating price is inside the Monday range. Monday range bias neutral due to price inside range. Source: AlgoAlpha Smart Money Breakout Analysis, Monday Range Trading Strategy, Key Levels SpacemanBTC"
+}

@@ -1,0 +1,30 @@
+{
+  "open_interest_value": 197986.0,
+  "open_interest_trend_raw": "falling",
+  "oi_price_interpretation": "semi_bearish",
+  "oi_specific_signals": {
+    "trapped_traders": null,
+    "stop_hunt_risk": null,
+    "failed_auction": null
+  },
+  "recent_liquidations": [
+    {
+      "type": "long",
+      "level": null,
+      "size": "small",
+      "timestamp_description": "Several small long liquidation bars visible around the 19th and 20th"
+    }
+  ],
+  "funding_rate_value": 0.0062,
+  "funding_rate_state": "bullish",
+  "funding_rate_trend": "falling",
+  "cvd_value": -3237.0,
+  "cvd_analysis": {
+    "trend": "falling",
+    "interpretation": "CVD falling with price ranging to slightly bearish, indicating mild selling pressure without strong momentum confirmation"
+  },
+  "overall_interpretation": "Price is in a ranging phase with bearish breakout signals and bearish momentum indicators. Open Interest is falling while price is ranging, suggesting some position reduction. Funding rate is slightly positive but falling, indicating mild bullish bias but weakening. CVD falling aligns with mild selling pressure. Recent liquidations are small longs, supporting cautious bearish sentiment. Overall, the derivatives data suggests a semi-bearish to neutral market condition with weakening momentum.",
+  "divergence_flag_oi": true,
+  "divergence_flag_cvd": false,
+  "notes": "Funding rate 0.0062 classified as Bullish per checklist thresholds (>0 and <0.01%). Open Interest falling while price ranging indicates semi-bearish OI-price relation. CVD falling confirms mild bearish momentum. Liquidations small and mostly long type. No clear trapped traders or stop hunt signals visually."
+}

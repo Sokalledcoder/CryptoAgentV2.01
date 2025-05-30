@@ -1,0 +1,39 @@
+{
+  "fvgs": [
+    {
+      "top": 106446.4,
+      "bottom": 105246.8,
+      "type": "bearish",
+      "strength_pct": 0.63
+    },
+    {
+      "top": 103100.0,
+      "bottom": 101900.0,
+      "type": "bullish",
+      "strength_pct": null
+    }
+  ],
+  "order_blocks": [
+    {
+      "top": 104800.0,
+      "bottom": 104300.0,
+      "type": "bearish"
+    },
+    {
+      "top": 102800.0,
+      "bottom": 102300.0,
+      "type": "bullish"
+    }
+  ],
+  "breakout_signals": [
+    {
+      "type": "BOS_down",
+      "price_level": 104951.0
+    },
+    {
+      "type": "CHoCH_down",
+      "price_level": 104951.0
+    }
+  ],
+  "notes": "Two main FVG zones identified: a bearish FVG near 106446.4 to 105246.8 with strength approx 63%, and a bullish FVG near 101900 to 103100. Two order blocks visible: bearish near 104800-104300 and bullish near 102800-102300. Recent breakout signals from AlgoAlpha indicate bearish structure break (BOS_down) and change of character (CHoCH_down) around current price 104951. Price is in a ranging phase between MID and S1 key levels with price touching MID level. This aligns with the bearish breakout signals and presence of order blocks and FVGs indicating potential resistance and support zones."
+}

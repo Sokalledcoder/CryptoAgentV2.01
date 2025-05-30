@@ -1,0 +1,55 @@
+{
+  "direction": "short",
+  "entry": 104951.0,
+  "stopLoss": 106500.0,
+  "takeProfit": 104000.0,
+  "winProbability": 40,
+  "timeframe": "15m",
+  "symbol": "BTCUSDT",
+  "confidence": "low",
+  "indicators": [
+    "Kalman oscillator declining indicating weakening bearish momentum",
+    "MOAK shows bearish momentum with no reversal",
+    "Volume delta mildly bearish but neutral overall",
+    "Funding rate 0.0062 bullish but falling",
+    "Open Interest falling indicating semi-bearish OI-price relation",
+    "CVD falling showing mild selling pressure",
+    "Fear & Greed Index at 71 (Greed) indicating elevated bullish sentiment"
+  ],
+  "patterns": [
+    "Market structure ranging with recent bearish BOS_down and CHoCH_down signals",
+    "Bearish Fair Value Gap between 106446.4 and 105246.8 with 63% strength",
+    "Bearish order block near 104800-104300 acting as resistance",
+    "Price inside Monday range between MID and S1 levels, touching MID"
+  ],
+  "strategies": [
+    "Short near resistance zones with strict stop loss above bearish FVG and order blocks",
+    "Monitor momentum and derivatives for signs of short squeeze or reversal"
+  ],
+  "marketCondition": "ranging",
+  "entryConditions": [
+    "Place limit short entry at 104951.0 near bearish order block and FVG resistance",
+    "Confirm rejection via 15-minute candle closes at entry zone",
+    "Set stop loss at 106500.0 above bearish FVG and order block resistance",
+    "Set take profit at 104000.0 near recent lows supported by bearish momentum",
+    "Monitor derivatives (funding rate, open interest, CVD) for reversal signs",
+    "Adjust or exit if price closes decisively above 105246.8 (bearish FVG zone)"
+  ],
+  "exitConditions": [
+    "Price closes above 106500.0 invalidating bearish breakout and short bias",
+    "Price breaks and closes above bearish FVG and order block zone (105246.8-106446.4)",
+    "Funding rate turns strongly positive and open interest rises indicating short squeeze risk",
+    "Entry condition not triggered within 12 hours",
+    "Unexpected major bullish news or institutional inflows causing rapid price surge"
+  ],
+  "fearAndGreedValue": 71,
+  "fearAndGreedRating": "Greed",
+  "btcDominance": 60.76,
+  "totalMarketCap": "$3.43T",
+  "notes": "Trade setup prioritizes bearish structure and liquidity zones confirmed by moderate bearish momentum and derivatives indicating mild selling pressure and position reduction. Elevated greed sentiment and mixed news add caution. The poor risk-reward ratio (0.61) significantly lowers confidence and increases risk, necessitating conservative position sizing (2% risk). Continuous monitoring of momentum and derivatives is critical to detect potential short squeeze or invalidation scenarios. Alternative bullish scenario involves price breaking above bearish FVG and order block resistance, which would invalidate the short setup.",
+  "_meta": {
+    "timestamp": "YYYY-MM-DDTHH:MM:SSZ_placeholder",
+    "analyst": "orchestrator-v1",
+    "error": "Calculated RR (0.61) is below minimum 2.0."
+  }
+}

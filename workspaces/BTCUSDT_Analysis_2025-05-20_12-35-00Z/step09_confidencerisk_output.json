@@ -1,0 +1,7 @@
+{
+  "confidence_pct": 40,
+  "risk_pct": 2.0,
+  "confidence_tier": "low",
+  "reasoning": "The overall potential bias is bearish/short as indicated by bearish breakout signals in structure and strong bearish liquidity zones (FVG and order blocks). Structure strongly aligns with short bias (+15), liquidity strongly supports short (+20), momentum moderately supports short (+10), derivatives moderately support short (+7), ranges weakly support short (+3), sentiment opposes short slightly (-2), and news is neutral to slightly bearish (-1). Starting from 50, total before penalty is 102, capped at 100. However, Agent 8 proposes a short setup with a very poor RR of 0.61, triggering a 20-point penalty, reducing WP to 80. Given the high WP but poor RR and setup risk, confidence is low and risk budget is set to 2.0%.",
+  "notes": "Strong bearish technical and liquidity evidence supports the short bias, but poor RR of proposed trade lowers confidence and increases risk. Elevated greed sentiment adds caution, and secondary news factors are mixed, reinforcing a cautious low confidence stance despite high WP."
+}

@@ -1,0 +1,15 @@
+{
+  "pair": "BTCUSDT",
+  "timeframe": "15m",
+  "exchange": "BYBIT",
+  "latest_ohlc_open": 104774.0,
+  "latest_ohlc_high": 104804.1,
+  "latest_ohlc_low": 104773.9,
+  "latest_ohlc_close": 104775.4,
+  "ohlc_data_description": "Latest candle OHLC values displayed near ticker on BTCUSDT Perpetual Contract 15m chart on BYBIT exchange.",
+  "range_high": 106446.4,
+  "range_low": 101900.0,
+  "price_now": 104951.0,
+  "price_delta_pct": 0.16,
+  "notes": "[TOOL_SUCCESS] Tool succeeded and asset matched; price within visual range; sanity check consistent."
+}

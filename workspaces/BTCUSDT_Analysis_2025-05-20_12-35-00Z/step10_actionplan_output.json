@@ -1,0 +1,62 @@
+{
+  "action_plan": [
+    {
+      "step_number": 1,
+      "description": "Place a limit short entry order at 104951.0 near current price level.",
+      "condition": "If price remains near the bearish order block and FVG resistance zone."
+    },
+    {
+      "step_number": 2,
+      "description": "Monitor 15-minute candle closes for confirmation of rejection at entry zone.",
+      "condition": "Upon price approaching or touching the entry level."
+    },
+    {
+      "step_number": 3,
+      "description": "Set stop loss order at 106500.0, just above the bearish FVG and order block resistance zone.",
+      "condition": "Immediately after entry order is filled."
+    },
+    {
+      "step_number": 4,
+      "description": "Set take profit order at 104000.0, near recent lows supported by bearish momentum and derivatives selling pressure.",
+      "condition": "Immediately after entry order is filled."
+    },
+    {
+      "step_number": 5,
+      "description": "Continuously monitor derivative indicators (funding rate, open interest, CVD) for signs of short squeeze or reversal.",
+      "condition": "Throughout the trade duration."
+    },
+    {
+      "step_number": 6,
+      "description": "Adjust or exit position if price breaks above the bearish FVG and order block resistance zone between 105246.8 and 106446.4.",
+      "condition": "If price closes decisively above 105246.8."
+    }
+  ],
+  "invalidation_triggers": [
+    {
+      "type": "technical",
+      "description": "Price closes decisively above 106500.0, invalidating the bearish breakout and short bias.",
+      "price_level": 106500.0
+    },
+    {
+      "type": "technical",
+      "description": "Price breaks and closes above the bearish FVG and order block resistance zone between 105246.8 and 106446.4.",
+      "price_level": 105246.8
+    },
+    {
+      "type": "derivatives_based",
+      "description": "Funding rate turns strongly positive and open interest rises significantly, indicating risk of short squeeze.",
+      "price_level": null
+    },
+    {
+      "type": "time_based",
+      "description": "Entry condition not triggered within the next 12 hours after plan initiation.",
+      "price_level": null
+    },
+    {
+      "type": "event_based",
+      "description": "Unexpected major bullish news or institutional inflows causing rapid price surge above resistance.",
+      "price_level": null
+    }
+  ],
+  "notes": "The action plan prioritizes entering a short near current resistance zones with strict stop loss above key bearish FVG and order blocks. Given low confidence and poor risk-reward ratio, position sizing is conservative (2% risk). Continuous monitoring of momentum and derivatives data is crucial to detect potential short squeeze or invalidation. Re-entry or exit decisions should factor in price behavior relative to key resistance and breakout levels."
+}

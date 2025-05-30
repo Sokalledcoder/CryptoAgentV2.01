@@ -1,0 +1,11 @@
+google-adk
+a2a-sdk
+ag-ui-protocol
+fastapi
+uvicorn[standard]
+python-dotenv
+requests
+pydantic
+google-generativeai
+sse-starlette
+copilotkit
