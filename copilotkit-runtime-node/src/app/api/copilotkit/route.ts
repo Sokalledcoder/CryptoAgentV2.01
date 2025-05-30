@@ -62,41 +62,38 @@ const geminiRuntimeAdapter = new GoogleGenerativeAIAdapter({
   apiKey: process.env.GOOGLE_API_KEY,
 } as any); // Added 'as any' back to options
 
-// --- Constructor Patch for CopilotRuntime v1.8.x (and compatible next releases) ---
-// This patch intercepts the CopilotRuntime constructor to overwrite the
-// instance-level getAdapter() closure, ensuring our geminiRuntimeAdapter is used.
-const CopilotRuntimeOrig = CopilotRuntime;
-(CopilotRuntime as any) = function PatchedCopilotRuntime(opts: any) {
-  const rt = new CopilotRuntimeOrig(opts);
-  // Overwrite the instance's getAdapter method
-  (rt as any).getAdapter = () => geminiRuntimeAdapter;
-  return rt;
-}; // Removed 'as typeof CopilotRuntimeOrig' to simplify type assertion for the assignment
-console.log("✅ CopilotRuntime constructor patched to ensure GoogleGenerativeAIAdapter is used for getAdapter().");
-// --- End Constructor Patch ---
+// --- Subclass Approach for CopilotRuntime v1.8.x (and compatible next releases) ---
+// This avoids the ES module binding issue by subclassing instead of reassigning the import.
+// The subclass overrides getAdapter() in the constructor to ensure our geminiRuntimeAdapter is used.
+class PatchedRuntime extends CopilotRuntime {
+  constructor(opts: any) {
+    super(opts);
+    // Override the getAdapter method to return our Gemini adapter
+    (this as any).getAdapter = () => geminiRuntimeAdapter;
+  }
+}
 
-// Configure CopilotRuntime.
-// The 'adapter' option in constructor is ignored by 1.8.x versions including ^1.8.14-next.2 due to internal closure.
-// The patch above ensures geminiRuntimeAdapter is used.
-const runtime = new CopilotRuntime({
-  // No 'adapter' property here; it's handled by the patch.
+// Configure CopilotRuntime using the patched subclass.
+const runtime = new PatchedRuntime({
   remoteEndpoints: [
     { url: FASTAPI_BACKEND_ENDPOINT_URL }
   ],
   actions: [], // No local Node.js actions defined
 });
 
+console.log("✅ PatchedRuntime (CopilotRuntime subclass) created with GoogleGenerativeAIAdapter override.");
 console.log(`CopilotKit Runtime (@copilotkit/runtime@^1.8.14-next.2) configured with remoteEndpoints.`);
-console.log(`GoogleGenerativeAIAdapter (model: gemini-2.5-flash-preview-05-20) injected via constructor patch.`);
+console.log(`GoogleGenerativeAIAdapter (model: gemini-2.5-flash-preview-05-20) injected via subclass.`);
 
 // Use copilotRuntimeNextJSAppRouterEndpoint
-// The runtime instance itself is now LLM-aware.
-// The serviceAdapter here acts as a fallback or for other specific purposes.
+// The runtime instance itself is now LLM-aware via the subclass.
+// CRITICAL: Use geminiRuntimeAdapter as serviceAdapter instead of emptyServiceAdapter
+// to ensure the endpoint handler uses our Gemini adapter for primary processing.
 const { POST: corePOST } =
   copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
     endpoint: "/api/copilotkit",
-    serviceAdapter: emptyServiceAdapter, // Retained as per user's research example
+    serviceAdapter: geminiRuntimeAdapter, // Changed from emptyServiceAdapter to geminiRuntimeAdapter
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
