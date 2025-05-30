@@ -1,7 +1,7 @@
 # Progress: Crypto TA Multi-Agent System
 
-**Version:** 0.8
-**Date:** 2025-05-30
+**Version:** 0.12
+**Date:** 2025-05-31
 
 ## 1. What Works / Completed
 
@@ -25,6 +25,13 @@
     *   Successfully set up a Node.js project (`copilotkit-runtime-node`) using Next.js for the CopilotKit Runtime middleware.
     *   Installed and configured `@copilotkit/runtime` and related packages.
     *   Iteratively debugged and refactored the Next.js API route (`copilotkit-runtime-node/src/app/api/copilotkit/route.ts`) to correctly handle requests, forward them to the FastAPI backend (using a custom `FastApiAdapter`), and manage CORS robustly. This resolved previous TypeScript and API versioning issues.
+    *   **Resolved Node.js `CopilotRuntime` LLM Adapter Configuration (COMPLETED THIS SESSION - Constructor Patch for @next tag):**
+        *   Confirmed `@copilotkit/runtime` is at version `^1.8.14-next.2` after clean install using the `next` dist-tag.
+        *   Implemented the "constructor patch" workaround in `copilotkit-runtime-node/src/app/api/copilotkit/route.ts` as direct constructor injection of the adapter was still resulting in fallback to `EmptyAdapter`. This patch involves:
+            *   Instantiating `GoogleGenerativeAIAdapter` with `model` ("gemini-2.5-flash-preview-05-20") and `apiKey` (options cast `as any` to handle potential type mismatches in `^1.8.14-next.2`).
+            *   Replacing the `CopilotRuntime` constructor with a patched version that calls the original constructor and then explicitly overwrites the instance's `getAdapter` method to return the configured `geminiRuntimeAdapter`.
+        *   This advanced workaround aims to definitively ensure the custom adapter is used, bypassing issues with internal closures in 1.8.x-like versions.
+        *   TypeScript errors for `apiKey` (in adapter options) and the constructor patch assignment have been addressed with `as any` casts.
 *   **Phase 1 - Basic Frontend Development (React/CopilotKit) (COMPLETED):**
     *   Successfully set up a basic React project (`copilotkit-react-frontend`) using Vite + TypeScript.
     *   Installed `@copilotkit/react-core` and `@copilotkit/react-ui`.
@@ -45,16 +52,19 @@
 
 ## 2. What's Left to Build / In Progress (Next Steps)
 
-*   **Phase 1 - Manual End-to-End Test (CRITICAL NEXT STEP):**
+*   **Phase 1 - Manual End-to-End Test (CRITICAL NEXT STEP - System Ready):**
+    *   With the Node.js runtime LLM adapter now configured, the system is ready for a full E2E test.
     *   Start all three servers (FastAPI backend at `http://localhost:8000`, Next.js runtime at `http://localhost:3000`, Vite frontend at `http://localhost:5173`).
     *   Manually open `http://localhost:5173` in a browser.
     *   Attempt to send a message (e.g., "Hello") using the `<CopilotChat />` UI.
     *   **Verify:**
-        *   The message appears in the UI.
-        *   Network requests flow correctly: Frontend (`:5173`) -> Node.js Runtime (`:3000/api/copilotkit`) -> FastAPI Backend (`:8000/copilotkit`). Check browser dev tools (Network tab) and server logs for all three services.
-        *   The ADK agent in the FastAPI backend processes the request (check FastAPI logs for `OrchestratorAgent` activity).
-        *   A response is streamed back from FastAPI -> Node.js Runtime -> Frontend and displayed in the UI.
-    *   Troubleshoot any issues, particularly with the frontend component's send functionality or response rendering. Consult the "Frontend sanity checklist" from the user's run-book if issues arise.
+        *   POST requests to `/copilotkit/info` from Node.js runtime to FastAPI backend occur.
+        *   When a message is sent from the UI, the Node.js runtime does not call `EmptyAdapter.process()` (it should now use `geminiAdapter` or directly invoke the remote action).
+        *   The FastAPI backend receives a `tool_calls` (or similar SDK-formatted) request to execute `runCryptoTaOrchestrator`.
+        *   The `adk_orchestrator_action_handler` in FastAPI is invoked and streams its response.
+        *   The Next.js runtime correctly processes this stream and the `this.callback is not a function` error (if previously occurring due to `EmptyAdapter`) is resolved.
+        *   The React frontend displays the streamed response.
+    *   Troubleshoot any issues. Consult the "Frontend sanity checklist" from the user's run-book if issues arise.
 *   **Phase 1 - Further Agent Development:** (Post successful E2E Test)
     *   Begin development of the 12 specialized ADK Task Agents based on user-provided prompts.
     *   Integrate these into the `OrchestratorAgent` (likely via `AgentTool`).
@@ -67,10 +77,12 @@
 
 ## 3. Current Status
 
-*   **Overall:** Backend (FastAPI with CopilotKit Python SDK), Node.js CopilotKitRuntime (Next.js with `FastApiAdapter`), and React/CopilotKit frontend are set up. Key configurations for CORS and request proxying are in place. All `@copilotkit/*` packages are at `@latest`.
-*   **Blocker:** Successful end-to-end message flow via the `<CopilotChat />` UI needs manual verification. Automated tests were inconclusive.
+*   **Overall:** Backend (FastAPI with CopilotKit Python SDK), Node.js CopilotKitRuntime (Next.js with `@copilotkit/runtime` at `^1.8.14-next.2`, configured with the constructor patch for `GoogleGenerativeAIAdapter`, and `remoteEndpoints`), and React/CopilotKit frontend are set up.
+*   **Blocker:** Node.js runtime LLM adapter configuration implemented using the constructor patch for `@copilotkit/runtime@^1.8.14-next.2`. The system is now ready for a decisive E2E test.
 *   **Risks:**
-    *   Potential issues in the frontend's interaction with the CopilotKit SDK or the Node.js runtime.
+    *   The constructor patch, while robust for 1.8.x behavior, is a workaround and might have unforeseen side effects or break with future non-major updates to the runtime if its internal structure changes.
+    *   The `next` tagged pre-release version (`^1.8.14-next.2`) might have its own instabilities.
+    *   Potential issues in the frontend's interaction with the CopilotKit SDK or the Node.js runtime during E2E testing.
     *   Complexity of debugging the full three-tier communication flow.
 
 ## 4. Evolution of Project Decisions
@@ -88,4 +100,4 @@
     *   All agents confirmed working with `gemini-2.5-flash-preview-05-20` when tested via `adk web`.
 *   **CopilotKit Versioning & API Nuances:**
     *   Significant learnings regarding API changes and type definitions (e.g., `CopilotRuntimeChatCompletionResponse` being `Response & { threadId: string; }`) across `@copilotkit/runtime` versions. The "Decoder Ring" was vital.
-    *   The `FastApiAdapter` pattern in `copilotkit-runtime-node/src/app/api/copilotkit/route.ts` is the current stable solution for integrating with the FastAPI backend.
+    *   The constructor patch for `CopilotRuntime` in `copilotkit-runtime-node/src/app/api/copilotkit/route.ts` is the current configuration for enabling LLM-driven remote action dispatch with `@copilotkit/runtime@^1.8.14-next.2`.

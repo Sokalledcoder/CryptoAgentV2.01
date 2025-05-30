@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@copilotkit/backend": "^0.37.0",
-    "@copilotkit/runtime": "^1.8.13",
+    "@copilotkit/runtime": "^1.8.14-next.2",
     "@google/generative-ai": "^0.24.1",
     "next": "15.3.3",
     "react": "^19.0.0",
