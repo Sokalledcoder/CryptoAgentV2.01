@@ -25,7 +25,7 @@ from fastapi import Request
 app = FastAPI(
     title="CopilotKit FastAPI Backend for Crypto TA",
     description="Exposes ADK agents via CopilotKit for AG-UI compliant interaction.",
-    version="0.2.3", # Version bump
+    version="0.2.4", # Version bump
 )
 
 # Middleware to log incoming request body for /copilotkit paths
@@ -75,75 +75,75 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. Define CopilotKit Action Handler for ADK OrchestratorAgent (Streaming)
-async def adk_orchestrator_action_handler(**kwargs): # Removed -> dict, as it's an async generator
+# 2. Define CopilotKit Action Handler for ADK OrchestratorAgent
+async def adk_orchestrator_action_handler(**kwargs) -> dict:
     """
     CopilotKit Action handler that receives parameters as keyword arguments.
-    Yields a streaming response.
+    Returns a dictionary response (not streaming for now to avoid serialization issues).
     """
     print(f"✅ HANDLER adk_orchestrator_action_handler reached with kwargs: {kwargs}")
     
-    query = kwargs.get('query', None) # Use None to distinguish missing key from empty string
+    query = kwargs.get('query', None)
     
-    if query is None: # Check if 'query' key was actually missing
+    if query is None:
         print("Warning: 'query' key not found in kwargs.")
-        yield {"event": "copilotkit_error", "data": {"status": "error", "message": "No query parameter provided in arguments"}}
-        return
+        return {"status": "error", "message": "No query parameter provided in arguments"}
     
     print(f"Processing query: '{query}'")
 
     try:
-        # Simulate streaming response
-        yield {"event": "copilotkit_stream_start", "data": {"status": "starting_simple_stream", "query_received": query}}
-        await asyncio.sleep(0.1) 
+        print("Attempting to run ADK Orchestrator Agent...")
+        session_service = InMemorySessionService()
+        runner = Runner(agent=orchestrator_agent, session_service=session_service, app_name="crypto_ta_backend")
+        content = create_simple_text_content(query, role="user")
+        print(f"ADK Runner: Invoking run_async with content: {content}")
 
-        yield {"event": "copilotkit_chunk", "data": {"chunk_id": 1, "content": f"Streaming response for: '{query}' - Part 1..."}}
-        await asyncio.sleep(0.1)
-
-        yield {"event": "copilotkit_chunk", "data": {"chunk_id": 2, "content": "Streaming response - Part 2. Almost done."}}
-        await asyncio.sleep(0.1)
+        # Collect all ADK events into a result
+        adk_results = []
+        # Generate unique session ID for each request
+        import uuid
+        session_id = f"crypto_session_{uuid.uuid4().hex[:8]}"
+        user_id = "crypto_user"
         
-        final_result_data = {
+        async for adk_event in runner.run_async(new_message=content, user_id=user_id, session_id=session_id):
+            print(f"ADK Event: {adk_event}")
+            # Convert ADK event to serializable format
+            if hasattr(adk_event, '__dict__'):
+                event_dict = {}
+                for key, value in adk_event.__dict__.items():
+                    try:
+                        # Test if value is JSON serializable
+                        json.dumps(value)
+                        event_dict[key] = value
+                    except (TypeError, ValueError):
+                        # If not serializable, convert to string
+                        event_dict[key] = str(value)
+                adk_results.append(event_dict)
+            else:
+                adk_results.append(str(adk_event))
+        
+        final_result = {
             "status": "success",
-            "final_message": "Simplified stream completed successfully.",
-            "echoed_query": query,
-            "example_data": { "pair": "BTCUSDT", "timeframe": "1H", "current_price_estimate": 45000.00 }
+            "message": "Crypto TA analysis completed successfully",
+            "query": query,
+            "adk_events": adk_results,
+            "analysis_summary": "Multi-agent crypto analysis executed with 5 specialized agents"
         }
-        yield {"event": "copilotkit_result", "data": final_result_data }
-        print(f"✅ HANDLER finished yielding. Final result data: {json.dumps(final_result_data, indent=2)}")
-
-        # TODO: Replace above with actual ADK orchestrator logic and streaming.
-        # Example of how ADK streaming might be integrated:
-        # """
-        # print("Attempting to run ADK Orchestrator Agent...")
-        # session_service = InMemorySessionService()
-        # runner = Runner(agent=orchestrator_agent, session_service=session_service)
-        # content = create_simple_text_content(query, role="user")
-        # print(f"ADK Runner: Invoking run_async with content: {content}")
-        #
-        # async for adk_event in runner.run_async(new_message=content):
-        #     print(f"ADK Event: {adk_event}")
-        #     # Adapt adk_event to CopilotKit's expected chunk/event structure
-        #     # This might involve checking adk_event.type, adk_event.data, etc.
-        #     # For example, if adk_event has a 'text' attribute:
-        #     if hasattr(adk_event, 'text') and adk_event.text:
-        #         yield {"event": "copilotkit_chunk", "data": {"content": adk_event.text}}
-        #     # Or if it's a more complex object, map its fields appropriately.
-        #     # You might also need to yield 'copilotkit_stream_start' and 'copilotkit_result'
-        #     # based on the ADK agent's lifecycle.
-        # """
+        
+        print(f"✅ HANDLER finished. Final result: {json.dumps(final_result, indent=2)}")
+        return final_result
         
     except Exception as e:
         print(f"!!! ERROR IN ACTION HANDLER adk_orchestrator_action_handler !!!: {e}")
         import traceback
         traceback.print_exc()
-        yield {"event": "copilotkit_error", "data": {"status": "error", "message": f"Handler error: {str(e)}"}}
+        return {"status": "error", "message": f"Handler error: {str(e)}"}
 
 # 3. Define the CopilotKit Action
 run_orchestrator_adk_action = Action(
     name="runCryptoTaOrchestrator",
     description="Invokes the Crypto Technical Analysis Orchestrator agent with a user query.",
-    handler=adk_orchestrator_action_handler, # Async generator
+    handler=adk_orchestrator_action_handler, # Now returns dict instead of async generator
     parameters=[
         {
             "name": "query", 
@@ -177,17 +177,15 @@ async def test_handler_directly_endpoint():
     print("--- DEBUG ENDPOINT (/debug/test-handler) CALLED ---")
     test_kwargs = {"query": "Test query from debug endpoint"}
     
-    results = []
     try:
-        async for item in adk_orchestrator_action_handler(**test_kwargs):
-            results.append(item)
-        print(f"Debug endpoint collected results: {json.dumps(results, indent=2)}")
-        return {"status": "success", "debug_handler_streamed_results": results}
+        result = await adk_orchestrator_action_handler(**test_kwargs)
+        print(f"Debug endpoint result: {json.dumps(result, indent=2)}")
+        return {"status": "success", "debug_handler_result": result}
     except Exception as e:
-        print(f"Error in debug endpoint calling streaming handler: {e}")
+        print(f"Error in debug endpoint calling handler: {e}")
         import traceback
         traceback.print_exc()
-        return {"status": "error", "message": f"Debug endpoint error: {str(e)}", "collected_results_before_error": results}
+        return {"status": "error", "message": f"Debug endpoint error: {str(e)}"}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
