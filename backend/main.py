@@ -1,13 +1,13 @@
-from dotenv import load_dotenv # Import load_dotenv
+from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-load_dotenv() # Load environment variables from .env file
+load_dotenv()  # Load environment variables from .env file
 import json 
 import uuid
-# from datetime import datetime, timezone # No longer needed here, CopilotKit Action handler will manage its own logic
-# from sse_starlette.sse import EventSourceResponse # Will be replaced by CopilotKit SDK's streaming
+import asyncio # For asyncio.sleep
+import datetime # For timestamp in logger
 
 # ADK Imports (needed for the Action handler)
 from backend.agents import orchestrator_agent
@@ -19,19 +19,52 @@ from backend.adk_message_types import create_simple_text_content
 from copilotkit import CopilotKitRemoteEndpoint, Action
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 
+# For diagnostic logging middleware
+from fastapi import Request
 
 app = FastAPI(
     title="CopilotKit FastAPI Backend for Crypto TA",
     description="Exposes ADK agents via CopilotKit for AG-UI compliant interaction.",
-    version="0.2.0", # Version bump
+    version="0.2.3", # Version bump
 )
 
+# Middleware to log incoming request body for /copilotkit paths
+@app.middleware("http")
+async def action_logger_middleware(request: Request, call_next):
+    # Default to original request for call_next
+    request_to_pass_on = request 
+
+    if request.method == "POST" and request.url.path.startswith("/copilotkit"):
+        print(f"🔥 RAW body logging for {request.method} {request.url.path} @ {datetime.datetime.now()}")
+        raw_body_bytes = await request.body() # Consume the body once
+        
+        # Log the raw body (or a snippet)
+        try:
+            decoded_body = raw_body_bytes.decode()
+            print(f"   Raw body content (first 500 chars): {decoded_body[:500]}{'...' if len(decoded_body) > 500 else ''}")
+            # Attempt to parse and pretty-print if JSON, for better readability
+            parsed_json = json.loads(decoded_body)
+            print(f"   Parsed JSON body: {json.dumps(parsed_json, indent=2)}")
+        except Exception as e:
+            print(f"   Raw body content (could not parse as JSON or other error): {raw_body_bytes.decode()[:500]}... Error: {e}")
+
+        # Define a new 'receive' awaitable that will yield the already-read body
+        async def new_receive():
+            return {"type": "http.request", "body": raw_body_bytes, "more_body": False}
+        
+        # Create a new Request object that uses our 'new_receive'
+        # This allows downstream handlers to call request.body() again if needed,
+        # and they will get the body we've already read.
+        request_to_pass_on = Request(scope=request.scope, receive=new_receive)
+    
+    response = await call_next(request_to_pass_on)
+    return response
+
 # 1. Configure CORS Middleware
-# Adjust origins as needed for development (Node.js runtime, React frontend) and production
 allowed_origins = [
-    "http://localhost:3000",  # Common port for Next.js dev server (CopilotKitRuntime)
-    "http://localhost:5173",  # Common port for Vite React dev server
-    # Add production frontend URL(s) here later
+    "http://localhost:3000",  # Next.js runtime
+    "http://localhost:3001",  # Alternative Next.js port
+    "http://localhost:5173",  # Vite React dev server
 ]
 
 app.add_middleware(
@@ -42,57 +75,119 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. Define CopilotKit Action Handler for ADK OrchestratorAgent
-# Temporarily make it synchronous for extreme simplicity in testing dispatch
-def adk_orchestrator_action_handler(query: str) -> dict: # Removed async
-    print(f"--- SIMPLIFIED ACTION HANDLER --- Received query: {query}")
-    # Return a simple dict; CopilotKit SDK should stream this as a result.
-    return {"status": "success", "echo": query, "message": "This is a simplified test response."}
+# 2. Define CopilotKit Action Handler for ADK OrchestratorAgent (Streaming)
+async def adk_orchestrator_action_handler(**kwargs): # Removed -> dict, as it's an async generator
+    """
+    CopilotKit Action handler that receives parameters as keyword arguments.
+    Yields a streaming response.
+    """
+    print(f"✅ HANDLER adk_orchestrator_action_handler reached with kwargs: {kwargs}")
+    
+    query = kwargs.get('query', None) # Use None to distinguish missing key from empty string
+    
+    if query is None: # Check if 'query' key was actually missing
+        print("Warning: 'query' key not found in kwargs.")
+        yield {"event": "copilotkit_error", "data": {"status": "error", "message": "No query parameter provided in arguments"}}
+        return
+    
+    print(f"Processing query: '{query}'")
+
+    try:
+        # Simulate streaming response
+        yield {"event": "copilotkit_stream_start", "data": {"status": "starting_simple_stream", "query_received": query}}
+        await asyncio.sleep(0.1) 
+
+        yield {"event": "copilotkit_chunk", "data": {"chunk_id": 1, "content": f"Streaming response for: '{query}' - Part 1..."}}
+        await asyncio.sleep(0.1)
+
+        yield {"event": "copilotkit_chunk", "data": {"chunk_id": 2, "content": "Streaming response - Part 2. Almost done."}}
+        await asyncio.sleep(0.1)
+        
+        final_result_data = {
+            "status": "success",
+            "final_message": "Simplified stream completed successfully.",
+            "echoed_query": query,
+            "example_data": { "pair": "BTCUSDT", "timeframe": "1H", "current_price_estimate": 45000.00 }
+        }
+        yield {"event": "copilotkit_result", "data": final_result_data }
+        print(f"✅ HANDLER finished yielding. Final result data: {json.dumps(final_result_data, indent=2)}")
+
+        # TODO: Replace above with actual ADK orchestrator logic and streaming.
+        # Example of how ADK streaming might be integrated:
+        # """
+        # print("Attempting to run ADK Orchestrator Agent...")
+        # session_service = InMemorySessionService()
+        # runner = Runner(agent=orchestrator_agent, session_service=session_service)
+        # content = create_simple_text_content(query, role="user")
+        # print(f"ADK Runner: Invoking run_async with content: {content}")
+        #
+        # async for adk_event in runner.run_async(new_message=content):
+        #     print(f"ADK Event: {adk_event}")
+        #     # Adapt adk_event to CopilotKit's expected chunk/event structure
+        #     # This might involve checking adk_event.type, adk_event.data, etc.
+        #     # For example, if adk_event has a 'text' attribute:
+        #     if hasattr(adk_event, 'text') and adk_event.text:
+        #         yield {"event": "copilotkit_chunk", "data": {"content": adk_event.text}}
+        #     # Or if it's a more complex object, map its fields appropriately.
+        #     # You might also need to yield 'copilotkit_stream_start' and 'copilotkit_result'
+        #     # based on the ADK agent's lifecycle.
+        # """
+        
+    except Exception as e:
+        print(f"!!! ERROR IN ACTION HANDLER adk_orchestrator_action_handler !!!: {e}")
+        import traceback
+        traceback.print_exc()
+        yield {"event": "copilotkit_error", "data": {"status": "error", "message": f"Handler error: {str(e)}"}}
 
 # 3. Define the CopilotKit Action
 run_orchestrator_adk_action = Action(
-    name="runCryptoTaOrchestrator", # This name is used by CopilotKit frontend/LLM
+    name="runCryptoTaOrchestrator",
     description="Invokes the Crypto Technical Analysis Orchestrator agent with a user query.",
-    handler=adk_orchestrator_action_handler,
+    handler=adk_orchestrator_action_handler, # Async generator
     parameters=[
-        {"name": "query", "type": "string", "description": "The user's query or instruction for the TA agent.", "required": True}
+        {
+            "name": "query", 
+            "type": "string", 
+            "description": "The user's query or instruction for the TA agent.", 
+            "required": True
+        }
     ]
 )
 
 # 4. Create CopilotKitRemoteEndpoint instance
 copilot_service = CopilotKitRemoteEndpoint(
     actions=[run_orchestrator_adk_action]
-    # We can add more actions or agents here later
 )
 
 # 5. Add CopilotKit endpoint to the FastAPI application
-# This will expose the AG-UI compliant endpoint at /copilotkit (or chosen path)
-# Trying with all arguments as positional, matching the research:
-# add_fastapi_endpoint(app_instance, sdk_instance, path_string)
 add_fastapi_endpoint(
-    app,                   # First positional: FastAPI app instance
-    copilot_service,       # Second positional: CopilotKitRemoteEndpoint instance
-    "/copilotkit"          # Third positional: path string
+    app,
+    copilot_service,
+    "/copilotkit"
 )
 
-# (Optional) A root endpoint for basic health check
+# Health check endpoint
 @app.get("/")
 async def read_root():
     return {"message": "Crypto TA FastAPI Backend with CopilotKit is running!"}
 
-# Comment out or remove the old SSE endpoint
-# class OrchestratorInput(BaseModel):
-#     query: str
-# @app.post("/invoke-orchestrator/")
-# async def invoke_orchestrator_sse(data: OrchestratorInput):
-#     """
-#     Receives a query, runs the OrchestratorAgent, and streams AG-UI events over SSE.
-#     """
-#     # ... (old implementation) ...
-#     pass
-
+# Debug endpoint to test the action handler directly
+@app.post("/debug/test-handler")
+async def test_handler_directly_endpoint():
+    print("--- DEBUG ENDPOINT (/debug/test-handler) CALLED ---")
+    test_kwargs = {"query": "Test query from debug endpoint"}
+    
+    results = []
+    try:
+        async for item in adk_orchestrator_action_handler(**test_kwargs):
+            results.append(item)
+        print(f"Debug endpoint collected results: {json.dumps(results, indent=2)}")
+        return {"status": "success", "debug_handler_streamed_results": results}
+    except Exception as e:
+        print(f"Error in debug endpoint calling streaming handler: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": f"Debug endpoint error: {str(e)}", "collected_results_before_error": results}
 
 if __name__ == "__main__":
-    # Ensure uvicorn runs the 'app' instance from this 'main.py' file.
-    # The command `python -m uvicorn backend.main:app --reload` from project root is preferred.
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

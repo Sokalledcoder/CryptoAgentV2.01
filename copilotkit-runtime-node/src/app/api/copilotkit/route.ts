@@ -5,10 +5,15 @@ import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse, // This is Response & { threadId: string }
+  GoogleGenerativeAIAdapter, // Import GoogleGenerativeAIAdapter
   // Message type is implicitly part of CopilotRuntimeChatCompletionRequest
-} from "@copilotkit/runtime";
+  // Parameter is used by RemoteChainParameters, ensure it's available or define if simple
+} from "@copilotkit/runtime"; 
+import { GoogleGenerativeAI } from "@google/generative-ai"; // Import base Google SDK
+// If Parameter type is complex, it might need its own import or definition.
+// For now, assuming it's simple enough or not strictly needed for this basic langserve setup.
 
-const FASTAPI_BACKEND_ENDPOINT_URL = "http://localhost:8000/copilotkit/"; // Added trailing slash
+const FASTAPI_BACKEND_ENDPOINT_URL = "http://localhost:8000/copilotkit"; 
 
 // CORS Configuration
 const allowedOrigin = "http://localhost:5173"; // Vite frontend
@@ -21,65 +26,63 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Credentials": "true",
 } as const;
 
-// Custom Adapter (Pattern C from Decoder Ring)
-class FastApiAdapter implements CopilotServiceAdapter {
-  constructor(private readonly url: string) {}
-
+// EmptyAdapter as per user's research for langserve approach
+class EmptyAdapter implements CopilotServiceAdapter {
   async process(
     req: CopilotRuntimeChatCompletionRequest
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const lastMessage = req.messages.at(-1); // Renamed 'last' to 'lastMessage' for consistency
-    
-    // Robust query extraction from user's run-book
-    const query =
-      typeof (lastMessage as any)?.content === "string"
-        ? (lastMessage as any)?.content
-        : (lastMessage as any)?.content?.[0]?.text ?? "";
-
-    // The 'if (!query && lastMessage)' warning block is no longer needed
-    // as the above line defaults to "" if content is not found or not in expected shape.
-    // A console.warn can be added here if lastMessage itself is undefined, if desired.
-    if (!lastMessage) {
-      console.warn("No last message found in request.");
-    } else if (query === "") {
-      // Only warn if there was a last message but we couldn't extract a query.
-      console.warn("Extracted empty query from last message:", lastMessage);
-    }
-    
-    // const payload = { query: query }; // We will send the whole req object
-    
-    const backendResponse = await fetch(this.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // body: JSON.stringify(payload), // Old: send only query
-      body: JSON.stringify(req), // New: send the entire CopilotRuntimeChatCompletionRequest
-    });
-
-    if (!backendResponse.ok) {
-      const errorText = await backendResponse.text();
-      console.error(`Error from FastAPI backend: ${backendResponse.status} ${errorText}`);
-      throw new Error(`Backend request failed: ${backendResponse.status} ${errorText}`);
-    }
-
-    // Decorate the Response with the required threadId and return it
-    const responseWithThreadId = backendResponse as any; 
-    responseWithThreadId.threadId = req.threadId ?? `thread_${Date.now()}`;
-    return responseWithThreadId as CopilotRuntimeChatCompletionResponse;
+    console.error(
+      "EmptyAdapter.process() was called unexpectedly. Langserve should handle requests to remote chains."
+    );
+    const errorResponseBase = new Response(
+      JSON.stringify({ error: "EmptyAdapter should not process requests." }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+    const errorResponse = Object.assign(errorResponseBase, {
+      threadId: req.threadId ?? `err-thread-${Date.now()}`
+    }) as CopilotRuntimeChatCompletionResponse;
+    return errorResponse;
   }
 }
+const emptyServiceAdapter = new EmptyAdapter();
 
-const serviceAdapter = new FastApiAdapter(FASTAPI_BACKEND_ENDPOINT_URL);
+// Instantiate Google Generative AI SDK
+// Ensure GOOGLE_API_KEY is set in the environment for this Node.js process
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || ""); 
+if (!process.env.GOOGLE_API_KEY) {
+  console.warn("GOOGLE_API_KEY is not set. GoogleGenerativeAIAdapter may not function.");
+}
 
-const runtime = new CopilotRuntime({
-  // For Pattern C, CopilotRuntime is often minimal, with logic in the adapter.
-  // actions: [], // If no Node-side actions.
+// Instantiate the GoogleGenerativeAIAdapter
+// Using the model name as per user's preference (can be adjusted)
+// The user's example: new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" })
+// A common model is "gemini-pro". Let's use that as a default.
+// Correcting to use 'model' instead of 'modelName' as per user's example and to fix TS error.
+const geminiAdapter = new GoogleGenerativeAIAdapter({ 
+  model: "gemini-pro", // Or "gemini-1.5-pro-latest" or user preferred
+  // generativeAi: genAI, // This might be needed if the adapter doesn't pick up genAI contextually
 });
 
-const { POST: corePOST } = // OPTIONS is handled by our custom OPTIONS function
+// Configure CopilotRuntime. Removing 'adapter' property due to persistent TS error.
+// We will test if remoteEndpoints can function if the client specifies the action.
+const runtime = new CopilotRuntime({
+  // adapter: geminiAdapter, // Removed due to TS error: 'adapter' does not exist in CopilotRuntimeConstructorParams
+
+  remoteEndpoints: [
+    { url: FASTAPI_BACKEND_ENDPOINT_URL } 
+  ],
+  actions: [], // Explicitly defining actions as empty, as all are remote.
+});
+
+console.log(`CopilotKit Runtime configured with remoteEndpoints, targeting FastAPI at: ${FASTAPI_BACKEND_ENDPOINT_URL}`);
+
+// Use copilotRuntimeNextJSAppRouterEndpoint with the remoteEndpoints-configured runtime.
+// An EmptyAdapter is still appropriate as the actual action processing is remote.
+const { POST: corePOST } = 
   copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    endpoint: "/api/copilotkit", 
-    serviceAdapter: serviceAdapter, 
+    runtime, // This runtime instance now has remoteEndpoints configured
+    endpoint: "/api/copilotkit", // The Next.js API route path
+    serviceAdapter: emptyServiceAdapter, // Pass the EmptyAdapter
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
