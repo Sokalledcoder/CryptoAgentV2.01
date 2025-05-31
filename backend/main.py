@@ -148,8 +148,26 @@ async def adk_orchestrator_action_handler(**kwargs) -> dict:
 
         adk_results = []
         session_id = f"crypto_session_{uuid.uuid4().hex[:8]}"
-        user_id = "crypto_user"
+        user_id    = "crypto_user"
+        # Use the app_name consistent with the Runner's initialization
+        # The Runner is initialized with app_name="crypto_ta_backend"
+        app_name   = adk_runner.app_name  # This should be "crypto_ta_backend"
+
+        print(f"--- Pre-creating session for ADK Runner (using await, simplified) ---")
+        print(f"Attempting to create session with: app_name='{app_name}', user_id='{user_id}', session_id='{session_id}'")
         
+        # ✅  async call *must* be awaited
+        # We assume session_id from uuid.uuid4() is unique for each new request,
+        # so "Session already exists" ValueError is highly unlikely and can be omitted for brevity here.
+        # If it occurs, it would propagate as an unhandled error, which is acceptable for now.
+        await session_service.create_session(
+            app_name=app_name,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        print(f"Successfully pre-created session {session_id}.")
+            
+        print(f"ADK Runner: Invoking run_async with session_id='{session_id}', user_id='{user_id}'.")
         async for adk_event in adk_runner.run_async(new_message=content, user_id=user_id, session_id=session_id):
             print(f"ADK Event: {adk_event}")
             if hasattr(adk_event, '__dict__'):

@@ -59,81 +59,76 @@ class FileSearchTool:
 class DerivativesAgent(LlmAgent): # Inherit from LlmAgent
     def __init__(self):
         super().__init__(
-            model="gemini-2.5-flash-preview-05-20", # Added model for LlmAgent
+            model="gemini-2.5-flash-preview-05-20",
             name="DerivativesAnalyzer",
             description="Analyzes Open Interest, Liquidations, Funding Rate, and Cumulative Volume Delta from chart subplots using RAG context.",
-            output_schema=Agent5b_Derivatives_Output # Added output_schema
+            instruction=AGENT_INSTRUCTION_DERIVATIVES, # instruction goes here
+            output_schema=Agent5b_Derivatives_Output
         )
         # Initialize tools separately
         tool_file_search = FunctionTool(func=FileSearchTool(vector_store_id="vs_derivatives_rag").search)
         tool_file_search.name = "FileSearchTool"
         tool_file_search.description = "Tool for searching documentation in a vector store."
 
-        self.tools = [tool_file_search]
+        self.tools: List[FunctionTool] = [tool_file_search]
 
-    async def run(self, chart_image_url: str, context_from_previous_agents: Dict[str, Any]) -> Agent5b_Derivatives_Output:
-        # PLAN: Query RAG for checklist rules including exact FR thresholds; locate OI, FR, Liq, CVD subplots;
-        # visually analyze trends/states/values within each subplot; correlate OI/CVD trends with the Price panel trend;
-        # apply RAG rules strictly, especially for FR state; check divergences/specific signals; synthesize; reflect; output JSON.
-        print("PLAN: Querying RAG for derivatives interpretation rules, then visually analyzing chart subplots for OI, Liq, FR, CVD. Correlating with price action and applying strict RAG rules, especially for Funding Rate thresholds. Preparing structured JSON output.")
+# Agent instruction constant
+AGENT_INSTRUCTION_DERIVATIVES = """
+# 📉 Crypto TA Agent 5b: Derivatives Analyzer
+*(CoT Enhanced — Visual Analysis of Subplots + RAG + Strict Rule Application)*
 
-        # EXECUTE RAG & ANALYSIS:
-        file_search_tool = FileSearchTool(vector_store_id="vs_derivatives_rag")
+## 🔒 SYSTEM-LEVEL DIRECTIVES
+1.  **Role & Objective**
+    Act as an expert derivatives analyst.
+    *   Tasks:
+        *   Analyze derivatives indicators (Open Interest, Liquidations, Funding Rate, Cumulative Volume Delta - CVD) typically found in **subplots of the provided chart image**.
+        *   Utilize the `FileSearchTool` to retrieve contextual information, interpretation guidelines, and **strict rules (e.g., Funding Rate thresholds)** from the RAG system.
+        *   Estimate indicator values/states if clearly visible on the chart subplots. If not, describe the visual pattern.
+        *   Correlate Open Interest and CVD trends with the main price panel trend.
+        *   Identify specific signals like trapped traders or stop hunt risks if apparent.
+        *   Synthesize findings into a structured JSON output, strictly adhering to RAG rules where specified (e.g., for Funding Rate state).
+2.  **Input** — A string containing a chart-image URL (e.g., "Chart Image URL: file:///path/to/image.png. User Query: ...") and potentially other context from the orchestrator. The primary analysis should focus on **subplots** visible in the chart image.
+3.  **Tool Usage** — You **MUST** use `FileSearchTool` to understand:
+    *   Interpretation of Open Interest relative to Price.
+    *   **Exact Funding Rate thresholds** and their corresponding states (e.g., Very Bullish, Bullish, Neutral, Bearish, Very Bearish).
+    *   Interpretation of Cumulative Volume Delta relative to Price.
+    *   Concepts of Trapped Traders and Stop Hunts.
+    *   *Params for FileSearchTool:* `query` = "How to interpret [Indicator Name/Concept]?" or "Provide [Specific Rules, e.g., Funding Rate thresholds]".
+4.  **Reasoning Steps** — Follow **all** steps below:
+    *   **PLAN** (short)
+        *   Outline: RAG for OI rules → RAG for Funding Rate thresholds → RAG for CVD rules → RAG for Trapped Traders/Stop Hunts → Visual analysis of chart image subplots for all indicators → Correlate with price → Apply rules strictly → Synthesize → JSON.
+    *   **EXECUTE RAG & ANALYSIS**
+        1.  **RAG Queries:** Invoke `FileSearchTool` for all required interpretation rules and thresholds as listed in "Tool Usage".
+        2.  **Visual Analysis (from Chart Image URL in input, focusing on subplots):**
+            *   For **Open Interest (OI):** Estimate `open_interest_value` (if legible). Determine `open_interest_trend_raw`. Describe `oi_price_interpretation` by correlating OI trend with price trend (from main chart panel, implied or explicit in query) using RAG rules. Identify `oi_specific_signals` (trapped traders, stop hunts, failed auctions) if visible.
+            *   For **Liquidations:** Identify `recent_liquidations` if visible on a liquidation map/indicator. Describe `type`, `level` (approximate), `size`, and `timestamp_description`.
+            *   For **Funding Rate (FR):** Estimate `funding_rate_value` (if legible). Determine `funding_rate_trend`. **Strictly apply RAG-retrieved thresholds** to determine `funding_rate_state`.
+            *   For **Cumulative Volume Delta (CVD):** Estimate `cvd_value` (if legible). Determine `trend` for `cvd_analysis`. Describe `interpretation` by correlating CVD trend with price trend using RAG rules.
+            *   If numerical values are not clearly legible from the image subplots, set them to `null` and rely on descriptive fields and trends.
+        3.  **Divergence:** Analyze for `divergence_flag_oi` (Price vs. OI) and `divergence_flag_cvd` (Price vs. CVD).
+    *   **REFLECTION**
+        1.  Restate key RAG rules (especially FR thresholds) and critical visual observations for each derivatives indicator.
+        2.  Summarize the overall picture painted by derivatives data, emphasizing confirmations or contradictions to price action.
+        3.  Confirm divergence statuses.
+    *   **OUTPUT**
+        *   Emit a single JSON object **conforming exactly** to the `Agent5b_Derivatives_Output` schema.
+        *   Ensure `funding_rate_state` is derived strictly from RAG thresholds.
+        *   Include `notes` for any assumptions, uncertainties, or if values were approximated.
+        *   *No PLAN / EXECUTE / REFLECTION prose in the final answer.*
+5.  **Output Constraint** — Your entire model reply must be the JSON object only.
 
-        rag_rules = file_search_tool.search("Provide the interpretation rules for Open Interest relative to Price, exact Funding Rate thresholds and their corresponding states (e.g., >0.04% = Very Bearish), Cumulative Volume Delta relative to Price, and Trapped Traders/Stop Hunts from the Trading Reference Checklist document.")
-        print(f"RAG Output - Derivatives Rules: {rag_rules}")
+---
 
-        # Placeholder for visual analysis of the chart_image_url and its subplots
-        print(f"Visual analysis of chart_image_url: {chart_image_url} and its subplots would occur here.")
-        print(f"Context from previous agents: {json.dumps(context_from_previous_agents, indent=2)}")
+## 🔁 WORKFLOW TASK (detailed steps to follow)
 
-        # REFLECTION: Briefly summarize key applicable RAG rules.
-        # State findings for OI (value?, trend, OI+Price interpretation), Liqs, FR (value?, state strictly based on RAG thresholds, trend),
-        # CVD (value?, trend, CVD+Price interpretation), and any specific OI signals. Note divergences. State overall interpretation.
-        print("REFLECTION: Based on RAG, Funding Rate thresholds are critical for sentiment. OI and CVD trends must be correlated with price for accurate interpretation. Liquidations indicate market exhaustion or stop hunts.")
-        print("Visual analysis (simulated): Assuming a slightly positive funding rate, rising OI with rising price, and CVD confirming buying pressure.")
+1.  **PLAN** – Briefly outline your plan.
+2.  **EXECUTE RAG & ANALYSIS** – Perform RAG queries and visual analysis of the chart image subplots as per System Directives.
+3.  **REFLECTION** – Synthesize findings, strictly applying rules.
+4.  **OUTPUT** – Generate the final JSON object.
 
-        # OUTPUT: Generate the final JSON based on reflection, conforming strictly to Agent5b_Derivatives_Output schema.
-        # Apply funding rate state thresholds exactly as defined in the RAG checklist.
-        # Set numerical fields to `null` if not clearly legible.
-        # Note interpretation difficulties if any.
-        
-        # Simulate applying FR thresholds based on a dummy value
-        simulated_fr_value = 0.015 # Example: 0.015%
-        funding_rate_state = "unclear"
-        if simulated_fr_value > 0.02:
-            funding_rate_state = "very_bullish"
-        elif 0.005 <= simulated_fr_value <= 0.02:
-            funding_rate_state = "bullish"
-        elif -0.005 <= simulated_fr_value < 0.005:
-            funding_rate_state = "neutral"
-        elif -0.02 <= simulated_fr_value < -0.005:
-            funding_rate_state = "bearish"
-        elif simulated_fr_value < -0.02:
-            funding_rate_state = "very_bearish"
+---
 
-        return Agent5b_Derivatives_Output(
-            open_interest_value=None,
-            open_interest_trend_raw="rising",
-            oi_price_interpretation="healthy_uptrend",
-            oi_specific_signals=OISpecificSignals(
-                trapped_traders=None,
-                stop_hunt_risk=None,
-                failed_auction=False
-            ),
-            recent_liquidations=[
-                LiquidationEvent(type="short", level=None, size="small", timestamp_description="recent")
-            ],
-            funding_rate_value=simulated_fr_value,
-            funding_rate_state=funding_rate_state,
-            funding_rate_trend="flat",
-            cvd_value=None,
-            cvd_analysis=CVDAnalysis(
-                trend="rising",
-                interpretation="Healthy bullish momentum, CVD confirming buying pressure (simulated visual correlation)"
-            ),
-            overall_interpretation="Derivatives data suggests a healthy bullish trend with positive funding and confirming volume, though no significant trapped traders or stop hunts observed.",
-            divergence_flag_oi=False,
-            divergence_flag_cvd=False,
-            notes=f"Funding rate {simulated_fr_value}% classified as {funding_rate_state} per checklist rule (simulated)."
-        )
+## 📦 OUTPUT SCHEMA — `Agent5b_Derivatives_Output` (already defined as Pydantic model)
+
+STOP: Generate ONLY the JSON object described above.
+"""

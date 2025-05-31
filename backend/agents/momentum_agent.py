@@ -24,11 +24,9 @@ class Agent5_Momentum_Output(BaseModel):
     divergence_flag: Optional[bool] = Field(None, description="Flag indicating divergence between indicators and price")
     notes: Optional[str] = Field(None, description="Additional notes or observations")
 
-from google.adk.agents import LlmAgent # Corrected import from LlmAgent
-# AgentTool is not used for these function-based tools.
-# from google.adk.tools.agent_tool import AgentTool 
-from google.adk.tools.function_tool import FunctionTool # Import FunctionTool
-import json
+from google.adk.agents import LlmAgent
+from google.adk.tools.function_tool import FunctionTool
+import json # Keep json if used by Pydantic models or other parts, otherwise can remove if only for the old run method's print
 
 # Placeholder for a simulated FileSearchTool
 # In a real scenario, this would interact with a RAG system.
@@ -50,71 +48,70 @@ class FileSearchTool:
 class MomentumAgent(LlmAgent): # Inherit from LlmAgent
     def __init__(self):
         super().__init__(
-            model="gemini-2.5-flash-preview-05-20", # Added model for LlmAgent
+            model="gemini-2.5-flash-preview-05-20",
             name="MomentumAnalyzer",
             description="Analyzes momentum and volume indicators (Kalman, Volume Delta, MOAK) from chart images and RAG context.",
-            output_schema=Agent5_Momentum_Output # Added output_schema
+            instruction=AGENT_INSTRUCTION_MOMENTUM, # instruction goes here
+            output_schema=Agent5_Momentum_Output
         )
         # Initialize tools separately
         tool_file_search = FunctionTool(func=FileSearchTool(vector_store_id="vs_momentum_rag").search)
         tool_file_search.name = "FileSearchTool"
         tool_file_search.description = "Tool for searching documentation in a vector store."
         
-        self.tools = [tool_file_search]
+        self.tools: List[FunctionTool] = [tool_file_search]
 
-    async def run(self, chart_image_url: str, context_from_agents_1_4: Dict[str, Any]) -> Agent5_Momentum_Output:
-        # PLAN: State plan (query docs for Kalman, VolDelta, MOAK interpretations;
-        # visually analyze indicators attempting numerical estimation *if clear*,
-        # otherwise note approximation needed; assess divergence; reflect; output structured JSON).
-        print("PLAN: Querying RAG for indicator interpretations, then visually analyzing chart for momentum and volume patterns. Will estimate numerical values if clearly legible, otherwise describe states. Assessing divergence and preparing structured JSON output.")
+# Agent instruction constant
+AGENT_INSTRUCTION_MOMENTUM = """
+# 📊 Crypto TA Agent 5: Momentum & Volume Analyzer
+*(CoT Enhanced — Visual Analysis + RAG + Status Tags)*
 
-        # EXECUTE RAG & ANALYSIS:
-        # In a real scenario, the LLM would call the FileSearchTool.
-        # For this placeholder, we simulate the RAG calls.
-        file_search_tool = FileSearchTool(vector_store_id="vs_momentum_rag")
+## 🔒 SYSTEM-LEVEL DIRECTIVES
+1.  **Role & Objective**
+    Act as an expert momentum and volume analyst.
+    *   Tasks:
+        *   Analyze momentum indicators (Adaptive Kalman Filter, Aggregated Volume Delta, Multi-Oscillator Adaptive Kernel - MOAK) from the provided chart image.
+        *   Utilize the `FileSearchTool` to retrieve contextual information and interpretation guidelines for these indicators from the RAG system.
+        *   Estimate indicator values/states if clearly visible on the chart. If not, describe the visual pattern.
+        *   Identify any potential divergences between indicators and price action.
+        *   Synthesize findings into a structured JSON output.
+2.  **Input** — A string containing a chart-image URL (e.g., "Chart Image URL: file:///path/to/image.png. User Query: ...") and potentially other context from the orchestrator.
+3.  **Tool Usage** — You **MUST** use `FileSearchTool` for each indicator (Kalman, Volume Delta, MOAK) to understand its interpretation before visual analysis.
+    *   *Params for FileSearchTool:* `query` = "How to interpret [Indicator Name] values and states?"
+4.  **Reasoning Steps** — Follow **all** steps below:
+    *   **PLAN** (short)
+        *   Outline: RAG for Kalman → RAG for Volume Delta → RAG for MOAK → Visual analysis of chart image for all three → Identify divergences → Synthesize → JSON.
+    *   **EXECUTE RAG & ANALYSIS**
+        1.  **RAG Queries:** Invoke `FileSearchTool` for "Adaptive Kalman Filter", "Aggregated Volume Delta", and "Multi-Oscillator Adaptive Kernel" to get their interpretation details.
+        2.  **Visual Analysis (from Chart Image URL in input):**
+            *   For **Kalman:** Attempt to estimate `oscillator_value`, `trend_strength_value`. Describe `state_description` based on visual cues (e.g., blue zones, position relative to zero) and RAG context.
+            *   For **Volume Delta:** Attempt to estimate `latest_delta_value`. Describe `recent_pattern` (e.g., increasing buying pressure, selling exhaustion) based on visual cues and RAG context.
+            *   For **MOAK:** Attempt to estimate `fast_signal_value`, `slow_signal_value`. Describe `state_description` (e.g., bullish/bearish crossover, OB/OS zones) based on visual cues and RAG context.
+            *   If numerical values are not clearly legible from the image, set them to `null` and rely on the descriptive fields.
+        3.  **Divergence:** Analyze if there are any clear divergences between the momentum/volume indicators and the price action implied by the chart. Set `divergence_flag`.
+        4.  **Top Exchanges:** If discernible from the chart or context, describe `top_exchanges_description`. Otherwise, state not determinable.
+    *   **REFLECTION**
+        1.  Restate RAG findings and key visual observations for each indicator.
+        2.  Summarize the overall momentum and volume picture.
+        3.  Confirm divergence status.
+    *   **OUTPUT**
+        *   Emit a single JSON object **conforming exactly** to the `Agent5_Momentum_Output` schema.
+        *   Include `notes` for any assumptions, uncertainties, or if values were approximated.
+        *   *No PLAN / EXECUTE / REFLECTION prose in the final answer.*
+5.  **Output Constraint** — Your entire model reply must be the JSON object only.
 
-        kalman_doc = file_search_tool.search("How to interpret Adaptive Kalman Filter Trend Strength Oscillator values and states (blue zones, thresholds)?")
-        volume_delta_doc = file_search_tool.search("How to interpret Aggregated Volume Delta indicator histogram patterns?")
-        moak_doc = file_search_tool.search("How to interpret Multi-Oscillator Adaptive Kernel Opus signals and states (fast/slow lines, OB/OS zones)?")
+---
 
-        print(f"RAG Output - Kalman: {kalman_doc}")
-        print(f"RAG Output - Volume Delta: {volume_delta_doc}")
-        print(f"RAG Output - MOAK: {moak_doc}")
+## 🔁 WORKFLOW TASK (detailed steps to follow)
 
-        # Placeholder for visual analysis of the chart_image_url
-        # In a real scenario, an image processing model would extract visual data.
-        # For now, we'll provide a dummy output based on the prompt's robustness.
-        print(f"Visual analysis of chart_image_url: {chart_image_url} would occur here.")
-        print(f"Context from previous agents: {json.dumps(context_from_agents_1_4, indent=2)}")
+1.  **PLAN** – Briefly outline your plan.
+2.  **EXECUTE RAG & ANALYSIS** – Perform RAG queries and visual analysis of the chart image as per System Directives.
+3.  **REFLECTION** – Synthesize findings.
+4.  **OUTPUT** – Generate the final JSON object.
 
-        # REFLECTION: Summarize key interpretation points from docs.
-        # State results of visual analysis: Estimate Kalman/VolDelta/MOAK numerical values
-        # if clearly visible, otherwise describe approximation (e.g., 'near zero', 'strongly positive').
-        # Crucially, determine the `state_description` based on visual patterns and RAG context.
-        # State divergence status and exchange dominance description.
-        print("REFLECTION: Based on RAG documentation, Kalman indicates trend strength, Volume Delta shows buying/selling pressure, and MOAK signals trend changes and overbought/oversold conditions.")
-        print("Visual analysis (simulated): Assuming a general bullish momentum with some consolidation.")
+---
 
-        # OUTPUT: Generate the final JSON based on the comprehensive reflection.
-        # Populate numerical fields carefully (allowing nulls or relying on description if uncertain).
-        # Ensure numerical fields within the outputs are `null` if they could not be read clearly,
-        # relying on the `state_description` or `recent_pattern` fields to convey the meaning.
-        return Agent5_Momentum_Output(
-            kalman_output=KalmanOutput(
-                oscillator_value=None, # Cannot determine from image
-                trend_strength_value=None, # Cannot determine from image
-                state_description="Kalman indicates a moderately bullish trend, with values in the positive zone, suggesting continued upward momentum based on RAG context."
-            ),
-            volume_delta_output=VolumeDeltaOutput(
-                latest_delta_value=None, # Cannot determine from image
-                recent_pattern="Recent Volume Delta bars show mixed activity but with a slight bias towards positive (buying) pressure, indicating accumulation."
-            ),
-            moak_output=MOAKOutput(
-                fast_signal_value=None, # Cannot determine from image
-                slow_signal_value=None, # Cannot determine from image
-                state_description="MOAK fast line is above the slow line, indicating bullish momentum. It is not in extreme overbought/oversold zones, suggesting room for movement."
-            ),
-            top_exchanges_description="Not determinable from current information.",
-            divergence_flag=False, # Assuming no clear divergence for now
-            notes="This analysis is based on simulated visual interpretation and RAG context. Actual numerical values require image processing."
-        )
+## 📦 OUTPUT SCHEMA — `Agent5_Momentum_Output` (already defined as Pydantic model)
+
+STOP: Generate ONLY the JSON object described above.
+"""

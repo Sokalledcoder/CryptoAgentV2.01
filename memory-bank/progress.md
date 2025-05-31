@@ -1,83 +1,62 @@
 # Progress: Crypto TA Multi-Agent System
 
-**Version:** 0.17
+**Version:** 0.19
 **Date:** 2025-05-31
 
 ## 1. What Works / Completed
 
-*   **Project Re-Planning:** Formulated and agreed upon a revised, more detailed multi-phase project plan. (Carried Over)
-*   **Critical Diagnostic Correction & Full Verification (Phase 0 Complete):** (Carried Over)
-*   **FastAPI Programmatic Invocation (RESOLVED):** (Carried Over)
-*   **Backend Refactoring with CopilotKit Python SDK (COMPLETED):** (Carried Over)
-*   **Phase 1 - Node.js CopilotKitRuntime Setup & Refinement (COMPLETED):** (Carried Over)
-*   **Phase 1 - Basic Frontend Development (React/CopilotKit) (COMPLETED):** (Carried Over)
-*   **Phase 1 - Package Upgrades (COMPLETED):** (Carried Over)
-*   **Phase 1 - Initial End-to-End Testing (ATTEMPTED):** (Carried Over)
-*   **Initial Documentation & Memory Bank Update:** Core Memory Bank files updated. (Carried Over & Ongoing)
-*   **Asset Collection:** (Carried Over)
-*   **All 12 Specialized ADK Agents Implemented & Refactored (Phase 1 Complete):**
-    *   All 12 specialized agents and `OrchestratorAgent` are implemented and refactored to class-based `LlmAgent`s with `output_schema` and `FunctionTool`.
-*   **Backend Server Operational (COMPLETED PREVIOUS SESSION):**
-    *   Uvicorn backend server starts successfully.
-*   **Backend Image Upload Capability (COMPLETED PREVIOUS PART OF SESSION):**
-    *   `backend/main.py`: Added `/upload-chart-image/` FastAPI endpoint, saves images, returns `file:///` URL.
-    *   CopilotKit action `runCryptoTaOrchestrator` updated for `image_url`.
-*   **Core Agent Refactoring (COMPLETED PREVIOUS PART OF SESSION):**
-    *   `ContextAgent`, `StructureAgent`, `RangesAgent`, `LiquidityAgent` refactored.
-    *   `OrchestratorAgent` updated.
-*   **Frontend Image Upload UI (COMPLETED THIS SESSION):**
-    *   `copilotkit-react-frontend/src/App.tsx`: Implemented UI for file selection and upload to backend.
-    *   Displays uploaded image URL or errors.
-    *   Dynamically updates `<CopilotChat>` instructions with the image URL.
-    *   `copilotkit-react-frontend/src/App.css`: Styled the new upload section.
-    *   Resolved TypeScript import error in `App.tsx`.
-*   **Backend Stability Fixes (COMPLETED THIS SESSION):**
-    *   Corrected `ImportError` in `backend/agents/__init__.py`.
-    *   Updated Uvicorn run command in `backend/main.py` to `backend.main:app` for robust reloading.
+*   **Project Re-Planning & Foundational Setup:** (All items from v0.18, sections 1-10, carried over as completed foundational work).
+*   **Core Agent Refactoring for Image URL Input (activeContext v0.19):**
+    *   `MomentumAgent` and `DerivativesAgent` refactored with detailed instruction prompts to parse and use image URLs from their input string.
+*   **Node.js Runtime Configuration Verified (activeContext v0.19):**
+    *   Confirmed `copilotkit-runtime-node/.../route.ts` correctly proxies actions.
+*   **ADK Session Management Resolved (activeContext v0.20):**
+    *   Successfully debugged and fixed session handling in `backend/main.py`.
+    *   Confirmed `InMemorySessionService.create_session()` is `async` and requires `app_name`, `user_id`, `session_id`.
+    *   Ensured `Runner.run_async()` is called with required `user_id` and `session_id`, and `create_session` is `await`ed. This resolved "Session not found" errors.
+*   **Initial Agent Execution Flow (Partial Success - activeContext v0.20):**
+    *   `OrchestratorAgent` now successfully starts and calls `ContextAgent` as its first tool.
 
 ## 2. What's Left to Build / In Progress (Next Steps)
 
-*   **Node.js Runtime Configuration for Action Proxying**: Ensure Node.js CopilotKit runtime proxies `runCryptoTaOrchestrator` (with `image_url`) to the Python backend.
-*   **Agent Image URL Consumption & Testing**:
-    *   Verify `ContextAgent` receives and can use the `image_url`.
-    *   Refactor `MomentumAgent` and `DerivativesAgent` prompts/logic if needed for `image_url`.
-    *   Test image processing flow with actual images.
-*   **RAG System Integration**: Connect actual knowledge base for enhanced analysis for agents requiring document search (Momentum, Derivatives).
-*   **Testing and Refinement**: Test complete 12-agent workflow with real MCP tools and refine outputs.
-*   **Further MCP Integration**: Integrate real MCP tools for other agents as needed (e.g., CoinGecko for price data in Context Agent).
-*   **Frontend-Backend Full Test**: Conduct a full end-to-end test from the React UI through the Node.js runtime to the Python backend and back, including image upload.
-*   **Memory Bank Maintenance:** Continue to update all Memory Bank files with new learnings, decisions, and progress.
+*   **Strategic Pivot: MCP Server Integration Discussion (NEW PRIORITY):**
+    *   **NEXT:** Initiate a new chat/task to discuss strategy for integrating existing STDIN/STDOUT MCP servers (CoinGecko, Fear & Greed, Perplexity) with ADK agents. Explore alternatives like HTTP wrappers or direct Python implementations if more suitable.
+*   **(Deferred) Resolve Gemini API Error:**
+    *   Investigate and fix `google.genai.errors.ClientError: 400 INVALID_ARGUMENT` ("Function calling with a response mime type: 'application/json' is unsupported"). This occurred when `OrchestratorAgent` called `ContextAgent` (after `output_schema` was initially present on `ContextAgent`).
+    *   The workaround of removing `output_schema` from `ContextAgent` led to the next error.
+*   **(Deferred) Resolve `ContextAgent` Internal Tool Call Error:**
+    *   Investigate and fix `ValueError: Function _simulated_mcp_get_price is not found in the tools_dict.` This occurred within `ContextAgent` after its `output_schema` was removed.
+    *   Last attempt involved renaming the tool to `fetch_current_price` in `ContextAgent` and its prompt. The outcome of this specific fix was not fully tested due to the pivot.
+*   **(Deferred) Agent Image URL Consumption & Testing:**
+    *   Once underlying API and tool-calling issues are resolved, conduct end-to-end testing of image processing flow.
+*   **(Deferred) RAG System Integration.**
+*   **(Deferred) Comprehensive Testing and Refinement of 12-agent workflow.**
+*   **(Deferred) Further MCP Integration (pending strategy discussion).**
+*   **(Deferred) Frontend-Backend Full Test (pending fixes).**
+*   **Memory Bank Maintenance:** Continue to update all Memory Bank files.
 
 ## 3. Current Status
 
-*   **Overall:** All 12 specialized ADK agents and the orchestrator are implemented and refactored. The Uvicorn backend server is running successfully. Backend and frontend UI for image upload functionality are implemented.
-*   **Blocker:** **RESOLVED** (Previous session) - ADK import and Pydantic validation errors.
+*   **Overall:** ADK session management in the FastAPI backend is now stable. The `OrchestratorAgent` can start and attempt to call its first sub-agent (`ContextAgent`). However, execution is blocked by errors related to Gemini API function calling (response MIME type) and subsequent errors in the `ContextAgent`'s internal tool invocation.
+*   **Strategic Shift:** Prioritizing discussion on MCP server integration strategy before further debugging the current agent execution path.
+*   **Blockers:**
+    *   (Previously) ADK Session errors - **RESOLVED**.
+    *   (Current - Deferred) Gemini API `application/json` response MIME type error.
+    *   (Current - Deferred) `ContextAgent` internal tool call error.
 *   **Risks:**
-    *   Node.js runtime configuration for action proxying.
-    *   LLM's ability to correctly interpret and use `file:///` URLs for image analysis.
-    *   Complexity of integrating real RAG systems.
-    *   Potential for unforeseen issues during comprehensive end-to-end testing.
-    *   Maintaining performance with increased agent complexity and external API calls.
+    *   Gemini API limitations impacting ADK `output_schema` usage with `AgentTool`.
+    *   Complexity of ADK `LlmAgent` internal tool naming and invocation.
+    *   Defining a robust and maintainable strategy for integrating STDIN/STDOUT MCP servers.
 
 ## 4. Evolution of Project Decisions
 
-*   **Initial Plan (OpenAI Agents SDK):** Shifted to Google-centric stack (ADK, A2A). (Carried Over)
-*   **Backend AG-UI Streaming:** Shifted from manual SSE implementation to using the `copilotkit` Python SDK for FastAPI. (Carried Over)
-*   **Frontend:** AG-UI with React/CopilotKit. (Carried Over)
-*   **RAG:** Requirement confirmed, implementation details deferred. (Carried Over)
-*   **Agent Structure:** 12-specialized-agent model. All 12 agents implemented and refactored to class-based `LlmAgent`. (Updated this session)
-*   **ADK Agent Discovery/Invocation:** Refined understanding. (Carried Over)
-*   **Gemini Model Access:** Confirmed Google AI Studio API key. (Carried Over)
-*   **MCP Tool Integration:** Real MCP tools integrated for some agents. (Carried Over)
-*   **ADK Session Management:** Global ADK Runner instance. (Carried Over)
-*   **ADK Agent Implementation Pattern (SOLIDIFIED):**
-    *   Standardized on `LlmAgent` from `google.adk.agents` as the base class.
-    *   Adopted `FunctionTool` from `google.adk.tools.function_tool` for wrapping Python callables.
-    *   Utilizing the `output_schema` parameter in `LlmAgent.__init__` with Pydantic models.
-    *   Corrected Pydantic field naming conventions (e.g., `_meta` to `meta` with alias).
-*   **Image Handling (NEW THIS SESSION):**
-    *   FastAPI backend handles image uploads and provides `file:///` URLs to agents.
-    *   React frontend provides UI for image upload and contextualizes CopilotChat.
-*   **Uvicorn Execution (Refined THIS SESSION):**
-    *   Using `python -m backend.main` and `backend.main:app` for robust execution and reloading.
-*   **CopilotKit Versioning & API Nuances:** (Carried Over)
+*   (Previous items from v0.18 carried over)
+*   **ADK Session Management (Learned THIS SESSION - activeContext v0.20):**
+    *   `InMemorySessionService.create_session` is `async` and requires keyword arguments: `app_name`, `user_id`, `session_id`. Must be `await`ed.
+    *   `Runner.run_async` requires `user_id` and `session_id` as keyword-only arguments in the current ADK version.
+*   **Gemini API Limitations (Identified THIS SESSION - activeContext v0.20):**
+    *   The API error "Function calling with a response mime type: 'application/json' is unsupported" is a significant constraint when using ADK `LlmAgent`s with `output_schema` as tools for other agents.
+*   **ADK Agent Tool Naming/Invocation (Observed THIS SESSION - activeContext v0.20):**
+    *   `LlmAgent`s may attempt to call internal tools by their Python function name (`func.__name__`) rather than the `FunctionTool.name` if `output_schema` is removed or other misconfigurations occur. This requires careful tool definition and prompting.
+*   **Strategic Pivot (THIS SESSION - activeContext v0.20):**
+    *   Decision to pause current agent execution debugging and prioritize a discussion in a new chat/task about the integration strategy for the existing STDIN/STDOUT-based MCP servers. This is due to context window limits and the need for a clear path forward on external tool usage.

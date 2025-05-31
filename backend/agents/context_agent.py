@@ -29,13 +29,13 @@ AGENT_INSTRUCTION_CONTEXT = """
     *   Tasks:
         *   Identify chart context from the image (pair, timeframe, exchange, brief description).
         *   Extract the **latest candle OHLC numbers displayed near the ticker**.
-        *   Call the MCP **`get-price`** tool for a live quote.
+        *   Call the MCP **`fetch_current_price`** tool for a live quote.
         *   **Validate** the returned asset & price.
         *   Perform a conditional price range sanity check.
         *   Report tool status with standardized tags.
         *   Output one strictly valid JSON object.
 2.  **Input** — A chart-image URL plus the orchestrator’s text context.
-3.  **Tool Usage** — You **MUST** attempt `get-price`.
+3.  **Tool Usage** — You **MUST** attempt `fetch_current_price`.
     *   *Params:* `coins` = base-asset slug (lower-case, e.g. `bitcoin`), `currencies` = `usd`.
 4.  **Reasoning Steps** — Follow **all** steps below:
     *   **PLAN** (short)
@@ -43,7 +43,7 @@ AGENT_INSTRUCTION_CONTEXT = """
     *   **EXECUTE ANALYSIS & TOOL CALL**
         1.  **Visual analysis** — Capture `pair`, `timeframe`, `exchange`, `ohlc_data_description`, estimate `range_high` / `range_low`, and **extract O, H, L, C values**.
         2.  **Prepare tool args** — `coins` = lower-case base symbol from `pair` (e.g. `HYPEUSDT` ➜ `hype`); `currencies` = `usd`.
-        3.  **Invoke `get-price`** with those args. Record raw response or error.
+        3.  **Invoke `fetch_current_price`** with those args. Record raw response or error.
     *   **REFLECTION**
         1.  Restate visual findings & tool result.
         2.  **Asset-slug validation** — Compare the tool’s returned `id`/`symbol` to the requested slug.
@@ -74,7 +74,7 @@ AGENT_INSTRUCTION_CONTEXT = """
 ## 🔁 WORKFLOW TASK (detailed steps to follow)
 
 1.  **PLAN** – Briefly outline your plan (≈ 1 sentence).
-2.  **EXECUTE ANALYSIS & TOOL CALL** – Perform visual analysis, prepare args, call the `get-price` tool.
+2.  **EXECUTE ANALYSIS & TOOL CALL** – Perform visual analysis, prepare args, call the `fetch_current_price` tool.
 3.  **REFLECTION** – Apply the detailed asset validation, tagging, price setting, conditional sanity check, delta calculation, and notes composition logic from the System Directives section above.
 4.  **OUTPUT** – Generate the final JSON object conforming to the schema.
 
@@ -90,14 +90,14 @@ class ContextAgent(LlmAgent):
         super().__init__(
             model="gemini-2.5-flash-preview-05-20", # Assuming this model has vision capabilities
             name="analyze_chart_context",
-            description="Analyzes chart context from an image, extracts OHLC, calls a price tool, validates, and outputs structured JSON.",
-            instruction=AGENT_INSTRUCTION_CONTEXT,
-            output_schema=Agent1_Context_Output
+            description="Analyzes chart context from an image, extracts OHLC, calls a price tool, validates, and outputs a JSON string.", # Modified description
+            instruction=AGENT_INSTRUCTION_CONTEXT
+            # output_schema=Agent1_Context_Output # Removed output_schema to avoid application/json mime type issue
         )
         
         # Define the tool using FunctionTool
         price_tool = FunctionTool(func=self._simulated_mcp_get_price)
-        price_tool.name = "get-price" # Name the LLM will use to call it
+        price_tool.name = "fetch_current_price" # Changed tool name
         price_tool.description = "Gets the current price for a list of coins in specified currencies. Simulates a call to CoinGecko MCP."
         # Input schema for the tool (for LLM guidance, actual validation by Pydantic in the method if needed)
         price_tool.input_schema = {
