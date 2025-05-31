@@ -13,34 +13,27 @@ class Agent7_News_Output(BaseModel):
     asset_news_sentiment: Optional[str] = Field(None, description="Overall sentiment of asset-specific news (Positive, Negative, Neutral, Mixed)")
     notes: Optional[str] = Field(None, description="Additional notes, conflict warnings, or notes on irrelevant searches")
 
-from google.adk.agent import Agent
-from google.adk.tools.agent_tool import AgentTool # Corrected import path for AgentTool
-from google.adk.side_effects import ToolCode
+from google.adk.agents import LlmAgent # Changed from Agent to LlmAgent for consistency and tool handling
+# AgentTool is not used for these function-based tools.
+# from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools.function_tool import FunctionTool # Import FunctionTool
 import json
 import re
 
-class NewsAgent(Agent):
+class NewsAgent(LlmAgent): # Changed from Agent to LlmAgent
     def __init__(self):
         super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Added model for LlmAgent
             name="NewsAnalyzer",
             description="Researches and analyzes crypto news and sentiment using Perplexity search, evaluating relevance to specific dates and assets.",
-            output_model=Agent7_News_Output,
-            tools=[
-                AgentTool(
-                    name="chat_perplexity",
-                    description="Tool for performing general search queries using Perplexity AI.",
-                    tool_code=ToolCode.from_callable(self._call_perplexity_search),
-                    parameters={
-                        "type": "object",
-                        "properties": {
-                            "message": {"type": "string", "description": "The message to send to Perplexity AI"},
-                            "chat_id": {"type": "string", "description": "Optional: ID of an existing chat to continue. If not provided, a new chat will be created."}
-                        },
-                        "required": ["message"]
-                    }
-                )
-            ]
+            output_schema=Agent7_News_Output # Changed output_model to output_schema
         )
+        # Initialize tools separately to set custom names and descriptions
+        tool_perplexity_search = FunctionTool(func=self._call_perplexity_search)
+        tool_perplexity_search.name = "chat_perplexity"
+        tool_perplexity_search.description = "Tool for performing general search queries using Perplexity AI."
+        
+        self.tools = [tool_perplexity_search]
 
     async def _call_perplexity_search(self, message: str, chat_id: Optional[str] = None) -> Dict[str, Any]:
         return await self.call_tool(

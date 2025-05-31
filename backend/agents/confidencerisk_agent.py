@@ -10,15 +10,16 @@ class Agent9_ConfidenceRisk_Output(BaseModel):
     reasoning: Optional[str] = Field(None, description="Justification for WP and confidence tier based on weighted assessment")
     notes: Optional[str] = Field(None, description="Additional notes or observations")
 
-from google.adk.agent import Agent
+from google.adk.agents import LlmAgent # Corrected import
 import json
 
-class ConfidenceRiskAgent(Agent):
+class ConfidenceRiskAgent(LlmAgent): # Inherit from LlmAgent
     def __init__(self):
         super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Added model
             name="ConfidenceRiskAssessor",
             description="Evaluates overall technical picture, calculates Win Probability (WP), and assigns Confidence tier and Risk budget.",
-            output_model=Agent9_ConfidenceRisk_Output,
+            output_schema=Agent9_ConfidenceRisk_Output, # Added output_schema
             tools=[] # No external tools for this agent
         )
 

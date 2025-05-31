@@ -1,10 +1,10 @@
 from google.adk.agents import LlmAgent
 from google.adk.tools.agent_tool import AgentTool # Corrected import path
-from backend.agents.context_agent import root_agent as context_agent_instance
-from backend.agents.structure_agent import root_agent as structure_agent_instance
-from backend.agents.ranges_agent import root_agent as ranges_agent_instance
-from backend.agents.liquidity_agent import root_agent as liquidity_agent_instance
-from backend.agents.sentiment_agent import root_agent as sentiment_agent_instance
+from backend.agents.context_agent import ContextAgent # Import the ContextAgent class
+from backend.agents.structure_agent import StructureAgent # Import the StructureAgent class
+from backend.agents.ranges_agent import RangesAgent # Import the RangesAgent class
+from backend.agents.liquidity_agent import LiquidityAgent # Import the LiquidityAgent class
+from backend.agents.sentiment_agent import SentimentAgent # Import the SentimentAgent class
 from backend.agents.momentum_agent import MomentumAgent # Import the new MomentumAgent class
 from backend.agents.derivatives_agent import DerivativesAgent # Import the new DerivativesAgent class
 from backend.agents.news_agent import NewsAgent # Import the new NewsAgent class
@@ -15,7 +15,7 @@ from backend.agents.finalpackage_agent import FinalPackageAgent # Import the new
 
 # Wrap the specialized agents as tools
 context_analysis_tool = AgentTool(
-    agent=context_agent_instance
+    agent=ContextAgent()
 )
 
 finalpackage_assembly_tool = AgentTool(
@@ -39,15 +39,15 @@ news_analysis_tool = AgentTool(
 )
 
 structure_analysis_tool = AgentTool(
-    agent=structure_agent_instance
+    agent=StructureAgent()
 )
 
 ranges_analysis_tool = AgentTool(
-    agent=ranges_agent_instance
+    agent=RangesAgent()
 )
 
 liquidity_analysis_tool = AgentTool(
-    agent=liquidity_agent_instance
+    agent=LiquidityAgent()
 )
 
 momentum_analysis_tool = AgentTool(
@@ -59,7 +59,7 @@ derivatives_analysis_tool = AgentTool(
 )
 
 sentiment_analysis_tool = AgentTool(
-    agent=sentiment_agent_instance
+    agent=SentimentAgent()
 )
 
 ORCHESTRATOR_INSTRUCTION = """

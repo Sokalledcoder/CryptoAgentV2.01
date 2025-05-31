@@ -1,50 +1,31 @@
 from google.adk.agents import LlmAgent
+from google.adk.tools.function_tool import FunctionTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
 
-# Define any tools needed for this agent
-async def file_search_tool(query: str) -> dict:
-    """
-    Simulates a RAG/FileSearch tool for querying knowledge base about AlgoAlpha definitions, 
-    Monday Range strategy, Swing Point definitions, etc.
-    """
-    print(f"[StructureAgent Tool] file_search_tool called with query: {query}")
-    
-    # Simulate responses based on common queries
-    if "algolpha" in query.lower() or "bos" in query.lower() or "choch" in query.lower():
-        return {
-            "results": [
-                {
-                    "content": "AlgoAlpha BOS (Break of Structure) indicates a bullish or bearish break. CHoCH (Change of Character) indicates trend reversal. Both are marked with horizontal lines at the break level.",
-                    "source": "AlgoAlpha_definitions.md"
-                }
-            ]
-        }
-    elif "monday" in query.lower():
-        return {
-            "results": [
-                {
-                    "content": "Monday Range strategy uses dotted lines labeled 'Monday High' and 'Monday Low' on the right side of the chart. Price above Monday High suggests bullish bias, below Monday Low suggests bearish bias.",
-                    "source": "Monday_Range_strategy.md"
-                }
-            ]
-        }
-    elif "swing" in query.lower():
-        return {
-            "results": [
-                {
-                    "content": "Swing points: HH (Higher High), LL (Lower Low), LH (Lower High), HL (Higher Low). Used to determine market structure phases.",
-                    "source": "Swing_Point_definitions.md"
-                }
-            ]
-        }
-    else:
-        return {
-            "results": [
-                {
-                    "content": "General market structure analysis involves identifying trend phases, swing points, and key levels.",
-                    "source": "General_TA.md"
-                }
-            ]
-        }
+# 1. Define Pydantic Models for Output Schema (v13)
+class MajorSwing(BaseModel):
+    type: Literal["HH", "LL", "LH", "HL"]
+
+class BosEvent(BaseModel):
+    type: Optional[Literal["BOS_up", "BOS_down"]] = None
+    position: Optional[Literal["above", "below", "at"]] = None
+
+class ChochEvent(BaseModel):
+    type: Optional[Literal["CHoCH_up", "CHoCH_down"]] = None
+    position: Optional[Literal["above", "below", "at"]] = None
+
+class MondayStatus(BaseModel):
+    high: Literal["above", "below", "at", "inside"]
+    low: Literal["above", "below", "at", "inside"]
+
+class Agent2_Structure_Output(BaseModel):
+    structure_phase: Optional[Literal["accumulation", "distribution", "trend_up", "trend_down", "ranging"]] = None
+    major_swings: List[MajorSwing] = Field(default_factory=list)
+    bos_event: BosEvent = Field(default_factory=BosEvent)
+    choch_event: ChochEvent = Field(default_factory=ChochEvent)
+    monday_status: MondayStatus
+    notes: Optional[str] = None
 
 AGENT_INSTRUCTION_STRUCTURE = """
 # 📈 Crypto TA Agent 2 – Market Structure & Monday Range
@@ -103,41 +84,76 @@ AGENT_INSTRUCTION_STRUCTURE = """
 
 ---
 
-## 📦 OUTPUT SCHEMA (v13 - Ultra Strict Relative Position)
+## 📦 OUTPUT SCHEMA (v13 - Ultra Strict Relative Position) - Defined as Pydantic Model
 
 Your response MUST be ONLY the following JSON structure (or the SCHEMA_VIOLATION error).
-
-```json
-{
-  "structure_phase": "accumulation | distribution | trend_up | trend_down | ranging | null",
-  "major_swings": [
-    // Optional: zero-to-two items, type only (HH, LL, LH, HL). PRICE FIELD FORBIDDEN.
-    {"type": "HH"},
-    {"type": "LL"}
-  ],
-  "bos_event": { // The single most recent visible BOS event
-    "type": "BOS_up | BOS_down | null", // null if none recent/visible
-    "position": "above | below | at | null" // Spatial position of price relative to BOS line
-  },
-  "choch_event": { // The single most recent visible CHoCH event
-    "type": "CHoCH_up | CHoCH_down | null", // null if none recent/visible
-    "position": "above | below | at | null" // Spatial position of price relative to CHoCH line
-  },
-  "monday_status": {
-    "high": "above | below | at | inside", // Spatial position relative to Monday High line (or "inside")
-    "low":  "above | below | at | inside"  // Spatial position relative to Monday Low line (or "inside")
-  },
-  "notes": "string | null" // Summary, source tags, Monday bias interpretation.
-}
 
 STOP – After completing PLAN → EXECUTE → REFLECTION, output only the JSON object above (or the SCHEMA_VIOLATION object).
 ABSOLUTELY NO numeric fields for BOS/CHoCH events or Monday status/levels. Focus on correct spatial determination of above/below/at/inside. Ensure perfect schema compliance.
 """
 
-root_agent = LlmAgent(
-    model="gemini-2.5-flash-preview-05-20",
-    name="analyze_market_structure",
-    description="Analyzes market structure, AlgoAlpha signals, and Monday Range positioning using visual spatial comparison.",
-    instruction=AGENT_INSTRUCTION_STRUCTURE,
-    tools=[file_search_tool]
-)
+class StructureAgent(LlmAgent):
+    def __init__(self):
+        super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Assuming vision capabilities
+            name="analyze_market_structure",
+            description="Analyzes market structure, AlgoAlpha signals, and Monday Range positioning using visual spatial comparison.",
+            instruction=AGENT_INSTRUCTION_STRUCTURE,
+            output_schema=Agent2_Structure_Output
+        )
+
+        search_tool = FunctionTool(func=self._simulated_file_search)
+        search_tool.name = "file_search_tool"
+        search_tool.description = "Simulates a RAG/FileSearch tool for querying knowledge base about AlgoAlpha definitions, Monday Range strategy, Swing Point definitions, etc."
+        search_tool.input_schema = {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The search query for the knowledge base."}
+            },
+            "required": ["query"]
+        }
+        self.tools: List[FunctionTool] = [search_tool]
+
+    async def _simulated_file_search(self, query: str) -> dict:
+        """
+        Simulates a RAG/FileSearch tool for querying knowledge base.
+        """
+        print(f"[StructureAgent Tool SIMULATION] _simulated_file_search called with query: {query}")
+        
+        query_lower = query.lower()
+        if "algolpha" in query_lower or "bos" in query_lower or "choch" in query_lower:
+            return {
+                "results": [
+                    {
+                        "content": "AlgoAlpha BOS (Break of Structure) indicates a bullish or bearish break. CHoCH (Change of Character) indicates trend reversal. Both are marked with horizontal lines at the break level.",
+                        "source": "AlgoAlpha_definitions.md"
+                    }
+                ]
+            }
+        elif "monday" in query_lower:
+            return {
+                "results": [
+                    {
+                        "content": "Monday Range strategy uses dotted lines labeled 'Monday High' and 'Monday Low' on the right side of the chart. Price above Monday High suggests bullish bias, below Monday Low suggests bearish bias.",
+                        "source": "Monday_Range_strategy.md"
+                    }
+                ]
+            }
+        elif "swing" in query_lower:
+            return {
+                "results": [
+                    {
+                        "content": "Swing points: HH (Higher High), LL (Lower Low), LH (Lower High), HL (Higher Low). Used to determine market structure phases.",
+                        "source": "Swing_Point_definitions.md"
+                    }
+                ]
+            }
+        else:
+            return {
+                "results": [
+                    {
+                        "content": "General market structure analysis involves identifying trend phases, swing points, and key levels.",
+                        "source": "General_TA.md"
+                    }
+                ]
+            }

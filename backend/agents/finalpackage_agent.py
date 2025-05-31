@@ -28,17 +28,18 @@ class FinalSignal(BaseModel):
     btcDominance: Optional[float] = Field(None, description="Bitcoin Dominance percentage")
     totalMarketCap: Optional[str] = Field(None, description="Total crypto market capitalization")
     notes: Optional[str] = Field(None, description="Overarching context, justifications, alternative scenarios, or residual sentiment/news details")
-    _meta: _Meta = Field(..., description="REQUIRED Metadata about the analysis")
+    meta: _Meta = Field(..., alias="_meta", description="REQUIRED Metadata about the analysis") # Renamed _meta to meta and added alias
 
-from google.adk.agent import Agent
+from google.adk.agents import LlmAgent # Corrected import
 import json
 
-class FinalPackageAgent(Agent):
+class FinalPackageAgent(LlmAgent): # Inherit from LlmAgent
     def __init__(self):
         super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Added model
             name="FinalPackagerValidatorSummarizer",
             description="Assembles, validates, and summarizes the final technical analysis report from all previous agents.",
-            output_model=FinalSignal,
+            output_schema=FinalSignal, # Added output_schema
             tools=[] # No external tools for this agent
         )
 
@@ -85,7 +86,7 @@ class FinalPackageAgent(Agent):
             "btcDominance": sentiment_output.get('global_market_data', {}).get('btc_dominance'),
             "totalMarketCap": sentiment_output.get('global_market_data', {}).get('total_market_cap_usd'),
             "notes": None,
-            "_meta": {
+            "meta": { # Renamed _meta to meta
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
                 "analyst": "orchestrator-v1",
                 "error": None # Assume no error for now

@@ -1,35 +1,23 @@
 from google.adk.agents import LlmAgent
-from google.adk.tools.agent_tool import AgentTool # This was for Orchestrator, not needed here directly
-# We need to define the tool for ContextAgent as it was in backend/__init__.py
+from google.adk.tools.function_tool import FunctionTool
+from pydantic import BaseModel, Field
+from typing import Optional, Union, List # Added List for self.tools
 
-# Define the asynchronous function for the tool
-async def get_price(coins: str, currencies: str = "usd") -> dict:
-    """
-    Gets the current price for a list of coins in specified currencies. Simulates a call to CoinGecko MCP.
-    Input schema:
-    {
-        "type": "object",
-        "properties": {
-            "coins": {"type": "string", "description": "Comma-separated list of coin IDs (e.g., \"bitcoin,ethereum\")"},
-            "currencies": {"type": "string", "default": "usd", "description": "Comma-separated list of currencies (e.g., \"usd,eur\")"}
-        },
-        "required": ["coins"]
-    }
-    """
-    print(f"[ContextAgent Tool] get_price called with coins: {coins}, currencies: {currencies}")
-    coin_list = coins.lower().split(',')
-    response = {}
-    if "bitcoin" in coin_list:
-        response["bitcoin"] = {"usd": 50000.00, "id": "bitcoin", "symbol": "btc"}
-        for c_item in coin_list:
-            if c_item != "bitcoin" and c_item not in response:
-                 response[c_item] = {"usd": 0.0, "id": c_item, "symbol": c_item[:3]}
-    elif coin_list:
-        for c_item in coin_list:
-            response[c_item] = {"usd": 123.45, "id": c_item, "symbol": c_item[:3]}
-    else:
-        return {"error": "No coins specified"}
-    return response
+# 1. Define the Pydantic Output Model
+class Agent1_Context_Output(BaseModel):
+    pair: str
+    timeframe: str
+    exchange: Optional[str] = None
+    latest_ohlc_open: Optional[float] = Field(default=None, description="Latest Open price from chart")
+    latest_ohlc_high: Optional[float] = Field(default=None, description="Latest High price from chart")
+    latest_ohlc_low: Optional[float] = Field(default=None, description="Latest Low price from chart")
+    latest_ohlc_close: Optional[float] = Field(default=None, description="Latest Close price from chart")
+    ohlc_data_description: Optional[str] = Field(default=None, description="Description of the OHLC data source or context")
+    range_high: Optional[float] = Field(default=None, description="Estimated high of the current visual range")
+    range_low: Optional[float] = Field(default=None, description="Estimated low of the current visual range")
+    price_now: float = Field(description="Final validated price. 0.0 if invalid / mismatch / fail / out-of-range")
+    price_delta_pct: Optional[float] = Field(default=None, description="Calculated only if price_now is valid (not 0.0)")
+    notes: Optional[str] = Field(default=None, description="MUST start with final status tag; include validation & sanity-check details")
 
 AGENT_INSTRUCTION_CONTEXT = """
 # 📈 Crypto TA Agent 1: Chart Context Analyzer
@@ -92,32 +80,77 @@ AGENT_INSTRUCTION_CONTEXT = """
 
 ---
 
-## 📦 OUTPUT SCHEMA — `Agent1_Context_Output`
-
-```json
-{
-  "pair": "string",
-  "timeframe": "string",
-  "exchange": "string | null",
-  "latest_ohlc_open": "number | null",
-  "latest_ohlc_high": "number | null",
-  "latest_ohlc_low": "number | null",
-  "latest_ohlc_close": "number | null",
-  "ohlc_data_description": "string | null",
-  "range_high": "number | null",
-  "range_low": "number | null",
-  "price_now": "number",          // Final validated price. 0.0 if invalid / mismatch / fail / out-of-range
-  "price_delta_pct": "number | null", // Calculated only if price_now is valid (not 0.0)
-  "notes": "string | null"        // MUST start with final status tag; include validation & sanity-check details
-}
+## 📦 OUTPUT SCHEMA — `Agent1_Context_Output` (already defined as Pydantic model)
 
 STOP: Generate ONLY the JSON object described above after completing the PLAN/REFLECT steps.
 """
 
-root_agent = LlmAgent(
-    model="gemini-2.5-flash-preview-05-20",
-    name="analyze_chart_context", # Changed name to match what Orchestrator expects
-    description="Analyzes chart context, extracts OHLC, calls price tool, validates, and outputs JSON.",
-    instruction=AGENT_INSTRUCTION_CONTEXT, # Use the specific instruction
-    tools=[get_price] # Pass the function directly
-)
+class ContextAgent(LlmAgent):
+    def __init__(self):
+        super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Assuming this model has vision capabilities
+            name="analyze_chart_context",
+            description="Analyzes chart context from an image, extracts OHLC, calls a price tool, validates, and outputs structured JSON.",
+            instruction=AGENT_INSTRUCTION_CONTEXT,
+            output_schema=Agent1_Context_Output
+        )
+        
+        # Define the tool using FunctionTool
+        price_tool = FunctionTool(func=self._simulated_mcp_get_price)
+        price_tool.name = "get-price" # Name the LLM will use to call it
+        price_tool.description = "Gets the current price for a list of coins in specified currencies. Simulates a call to CoinGecko MCP."
+        # Input schema for the tool (for LLM guidance, actual validation by Pydantic in the method if needed)
+        price_tool.input_schema = {
+            "type": "object",
+            "properties": {
+                "coins": {"type": "string", "description": "Comma-separated list of coin IDs (e.g., \"bitcoin,ethereum\")"},
+                "currencies": {"type": "string", "default": "usd", "description": "Comma-separated list of currencies (e.g., \"usd,eur\")"}
+            },
+            "required": ["coins"]
+        }
+        self.tools: List[FunctionTool] = [price_tool]
+
+    async def _simulated_mcp_get_price(self, coins: str, currencies: str = "usd") -> dict:
+        """
+        Simulates a call to CoinGecko MCP to get the current price for a list of coins.
+        """
+        print(f"[ContextAgent Tool SIMULATION] _simulated_mcp_get_price called with coins: {coins}, currencies: {currencies}")
+        coin_list = coins.lower().split(',')
+        response = {}
+        
+        # Basic simulation logic
+        if not coin_list or not coins.strip():
+            return {"error": "No coins specified or empty coin string."}
+
+        if "bitcoin" in coin_list:
+            response["bitcoin"] = {"usd": 50000.00, "id": "bitcoin", "symbol": "btc", "name": "Bitcoin"}
+            # Simulate other coins if requested alongside bitcoin
+            for c_item in coin_list:
+                if c_item != "bitcoin" and c_item not in response:
+                    response[c_item] = {"usd": 100.00 + len(c_item) * 10, "id": c_item, "symbol": c_item[:3].upper(), "name": c_item.capitalize()} # Dummy data
+        else:
+            for c_item in coin_list:
+                response[c_item] = {"usd": 100.00 + len(c_item) * 10, "id": c_item, "symbol": c_item[:3].upper(), "name": c_item.capitalize()} # Dummy data
+        
+        # Ensure each coin in the response has the currency key
+        final_response = {}
+        for coin_id, data in response.items():
+            final_response[coin_id] = {cur: data.get(cur, 0.0) for cur in currencies.split(',')}
+            final_response[coin_id]['id'] = data.get('id', coin_id)
+            final_response[coin_id]['symbol'] = data.get('symbol', coin_id[:3].upper())
+            final_response[coin_id]['name'] = data.get('name', coin_id.capitalize())
+            # Ensure the primary currency (first in list, or usd) has the main price
+            main_currency = currencies.split(',')[0]
+            if main_currency not in final_response[coin_id] and 'usd' in data: # fallback for simulation
+                 final_response[coin_id][main_currency] = data['usd']
+
+
+        if not final_response: # Should not happen if coin_list was not empty
+             return {"error": f"Could not simulate price for {coins}"}
+             
+        return final_response
+
+# To make this agent discoverable or usable by an orchestrator, 
+# you might instantiate it or register it elsewhere,
+# for example, in backend/agents/__init__.py or directly in the orchestrator.
+# For now, defining the class is the main step.

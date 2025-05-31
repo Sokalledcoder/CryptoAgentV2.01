@@ -33,9 +33,10 @@ class Agent5b_Derivatives_Output(BaseModel):
     divergence_flag_cvd: Optional[bool] = Field(None, description="Flag for divergence between Price and Cumulative Volume Delta")
     notes: Optional[str] = Field(None, description="Additional notes or observations")
 
-from google.adk.agent import Agent
-from google.adk.tools.agent_tool import AgentTool # Corrected import path for AgentTool
-from google.adk.side_effects import ToolCode
+from google.adk.agents import LlmAgent # Corrected import from LlmAgent
+# AgentTool is not used for these function-based tools.
+# from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools.function_tool import FunctionTool # Import FunctionTool
 import json
 
 # Placeholder for a simulated FileSearchTool
@@ -55,27 +56,20 @@ class FileSearchTool:
         else:
             return "No specific documentation found for the query."
 
-class DerivativesAgent(Agent):
+class DerivativesAgent(LlmAgent): # Inherit from LlmAgent
     def __init__(self):
         super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Added model for LlmAgent
             name="DerivativesAnalyzer",
             description="Analyzes Open Interest, Liquidations, Funding Rate, and Cumulative Volume Delta from chart subplots using RAG context.",
-            output_model=Agent5b_Derivatives_Output,
-            tools=[
-                AgentTool(
-                    name="FileSearchTool",
-                    description="Tool for searching documentation in a vector store.",
-                    tool_code=ToolCode.from_callable(FileSearchTool(vector_store_id="vs_derivatives_rag").search),
-                    parameters={
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "The search query for the documentation."}
-                        },
-                        "required": ["query"]
-                    }
-                )
-            ]
+            output_schema=Agent5b_Derivatives_Output # Added output_schema
         )
+        # Initialize tools separately
+        tool_file_search = FunctionTool(func=FileSearchTool(vector_store_id="vs_derivatives_rag").search)
+        tool_file_search.name = "FileSearchTool"
+        tool_file_search.description = "Tool for searching documentation in a vector store."
+
+        self.tools = [tool_file_search]
 
     async def run(self, chart_image_url: str, context_from_previous_agents: Dict[str, Any]) -> Agent5b_Derivatives_Output:
         # PLAN: Query RAG for checklist rules including exact FR thresholds; locate OI, FR, Liq, CVD subplots;

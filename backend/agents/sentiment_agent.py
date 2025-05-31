@@ -1,6 +1,7 @@
 from google.adk.agents import LlmAgent
-from google.adk.tools.agent_tool import AgentTool # Corrected import path for AgentTool
-from google.adk.side_effects import ToolCode # Import ToolCode for MCP calls
+# AgentTool is not used for these function-based tools.
+# from google.adk.tools.agent_tool import AgentTool 
+from google.adk.tools.function_tool import FunctionTool # Import FunctionTool
 from typing import Dict, Any
 
 # Define the Pydantic model for the output schema (assuming it's defined elsewhere or will be defined here)
@@ -66,34 +67,31 @@ Your response MUST be ONLY the following JSON structure (after PLAN/REFLECT step
 
 STOP: Generate ONLY the JSON object described above after completing the PLAN/REFLECT steps using the specified MCP tools.
 """,
-            output_model=Agent6_Sentiment_Output,
-            tools=[
-                AgentTool(
-                    name="mcp_fearandgreed_get_current",
-                    description="Gets the current Fear and Greed Index value.",
-                    tool_code=ToolCode.from_callable(self._call_mcp_fearandgreed_get_current),
-                    parameters={"type": "object", "properties": {"random_string": {"type": "string"}}}
-                ),
-                AgentTool(
-                    name="mcp_fearandgreed_interpret_value",
-                    description="Interprets a Fear and Greed Index value.",
-                    tool_code=ToolCode.from_callable(self._call_mcp_fearandgreed_interpret_value),
-                    parameters={"type": "object", "properties": {"value": {"type": "number"}}, "required": ["value"]}
-                ),
-                AgentTool(
-                    name="mcp_fearandgreed_compare_with_historical",
-                    description="Compares current Fear and Greed Index with historical data.",
-                    tool_code=ToolCode.from_callable(self._call_mcp_fearandgreed_compare_with_historical),
-                    parameters={"type": "object", "properties": {"days": {"type": "number"}}}
-                ),
-                AgentTool(
-                    name="global_market_data",
-                    description="Gets global cryptocurrency market data including BTC dominance and total market cap.",
-                    tool_code=ToolCode.from_callable(self._call_global_market_data),
-                    parameters={"type": "object", "properties": {"include_defi": {"type": "boolean"}}}
-                )
-            ]
+            output_schema=Agent6_Sentiment_Output # Changed to output_schema
         )
+        # Initialize tools separately to set custom names and descriptions
+        tool_get_current = FunctionTool(func=self._call_mcp_fearandgreed_get_current)
+        tool_get_current.name = "mcp_fearandgreed_get_current"
+        tool_get_current.description = "Gets the current Fear and Greed Index value."
+
+        tool_interpret_value = FunctionTool(func=self._call_mcp_fearandgreed_interpret_value)
+        tool_interpret_value.name = "mcp_fearandgreed_interpret_value"
+        tool_interpret_value.description = "Interprets a Fear and Greed Index value."
+
+        tool_compare_historical = FunctionTool(func=self._call_mcp_fearandgreed_compare_with_historical)
+        tool_compare_historical.name = "mcp_fearandgreed_compare_with_historical"
+        tool_compare_historical.description = "Compares current Fear and Greed Index with historical data."
+
+        tool_global_market_data = FunctionTool(func=self._call_global_market_data)
+        tool_global_market_data.name = "global_market_data"
+        tool_global_market_data.description = "Gets global cryptocurrency market data including BTC dominance and total market cap."
+
+        self.tools = [
+            tool_get_current,
+            tool_interpret_value,
+            tool_compare_historical,
+            tool_global_market_data
+        ]
 
     async def _call_mcp_fearandgreed_get_current(self, random_string: str = "dummy") -> Dict[str, Any]:
         return await self.call_tool(

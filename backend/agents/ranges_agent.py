@@ -1,31 +1,22 @@
 from google.adk.agents import LlmAgent
+from google.adk.tools.function_tool import FunctionTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
 
-# Define any tools needed for this agent
-async def file_search_tool(query: str) -> dict:
-    """
-    Simulates a RAG/FileSearch tool for querying knowledge base about LuxAlgo Predictive Ranges.
-    """
-    print(f"[RangesAgent Tool] file_search_tool called with query: {query}")
-    
-    # Simulate responses based on common queries
-    if "luxalgo" in query.lower() or "predictive" in query.lower() or "ranges" in query.lower():
-        return {
-            "results": [
-                {
-                    "content": "LuxAlgo Predictive Ranges displays R2, R1, MID, S1, S2 levels in the top-left status line. These levels act as dynamic support and resistance zones. The indicator shows current price interaction with these levels.",
-                    "source": "LuxAlgo_Predictive_Ranges.md"
-                }
-            ]
-        }
-    else:
-        return {
-            "results": [
-                {
-                    "content": "General range analysis involves identifying key support and resistance levels and price interaction with these zones.",
-                    "source": "Range_Analysis.md"
-                }
-            ]
-        }
+# 1. Define Pydantic Models for Output Schema (Agent3_Ranges_Output_V7)
+class LevelDetail(BaseModel):
+    level: Literal["R2", "R1", "MID", "S1", "S2"]
+    price: Optional[float] = None
+    approx: bool
+
+class Agent3_Ranges_Output(BaseModel):
+    levels: List[LevelDetail] = Field(default_factory=list)
+    numeric_interaction_state: Optional[Literal[
+        "outside_R2", "inside_R1_R2", "inside_R1_MID", 
+        "inside_MID_S1", "inside_S1_S2", "outside_S2"
+    ]] = None
+    visual_touching_level: Optional[Literal["R2", "R1", "MID", "S1", "S2"]] = None
+    notes: Optional[str] = None
 
 AGENT_INSTRUCTION_RANGES = """
 # 📈 Agent 3 – LuxAlgo Predictive Ranges
@@ -107,30 +98,56 @@ AGENT_INSTRUCTION_RANGES = """
 
 ---
 
-## 📦 OUTPUT SCHEMA (Agent3_Ranges_Output_V7 - Reminder)
+## 📦 OUTPUT SCHEMA (Agent3_Ranges_Output_V7 - Reminder) - Defined as Pydantic Model
 
-```json
-{
-  "levels":[
-    {"level":"R2", "price":"number | null", "approx": "boolean"},
-    {"level":"R1", "price":"number | null", "approx": "boolean"},
-    {"level":"MID", "price":"number | null", "approx": "boolean"},
-    {"level":"S1", "price":"number | null", "approx": "boolean"},
-    {"level":"S2", "price":"number | null", "approx": "boolean"}
-  ],
-  "numeric_interaction_state":"outside_R2 | inside_R1_R2 | inside_R1_MID | inside_MID_S1 | inside_S1_S2 | outside_S2 | null", // Result AFTER assertion check
-  "visual_touching_level":"R2 | R1 | MID | S1 | S2 | null",
-  "notes":"string | null" // Explain if assertion failed
-}
-
-    STOP – Output only JSON (or SCHEMA_VIOLATION).
-    Perform ALL checks: Sanity Order, Numeric Comparison, Assertion, Visual Touch.
+STOP – Output only JSON (or SCHEMA_VIOLATION).
+Perform ALL checks: Sanity Order, Numeric Comparison, Assertion, Visual Touch.
 """
 
-root_agent = LlmAgent(
-    model="gemini-2.5-flash-preview-05-20",
-    name="analyze_predictive_ranges",
-    description="Analyzes LuxAlgo Predictive Ranges levels, price interaction states, and visual touching levels.",
-    instruction=AGENT_INSTRUCTION_RANGES,
-    tools=[file_search_tool]
-)
+class RangesAgent(LlmAgent):
+    def __init__(self):
+        super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Assuming vision capabilities
+            name="analyze_predictive_ranges",
+            description="Analyzes LuxAlgo Predictive Ranges levels, price interaction states, and visual touching levels.",
+            instruction=AGENT_INSTRUCTION_RANGES,
+            output_schema=Agent3_Ranges_Output
+        )
+
+        search_tool = FunctionTool(func=self._simulated_file_search)
+        search_tool.name = "file_search_tool"
+        search_tool.description = "Simulates a RAG/FileSearch tool for querying knowledge base about LuxAlgo Predictive Ranges."
+        search_tool.input_schema = {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The search query for the knowledge base."}
+            },
+            "required": ["query"]
+        }
+        self.tools: List[FunctionTool] = [search_tool]
+
+    async def _simulated_file_search(self, query: str) -> dict:
+        """
+        Simulates a RAG/FileSearch tool for querying knowledge base about LuxAlgo Predictive Ranges.
+        """
+        print(f"[RangesAgent Tool SIMULATION] _simulated_file_search called with query: {query}")
+        
+        query_lower = query.lower()
+        if "luxalgo" in query_lower or "predictive" in query_lower or "ranges" in query_lower:
+            return {
+                "results": [
+                    {
+                        "content": "LuxAlgo Predictive Ranges displays R2, R1, MID, S1, S2 levels in the top-left status line. These levels act as dynamic support and resistance zones. The indicator shows current price interaction with these levels.",
+                        "source": "LuxAlgo_Predictive_Ranges.md"
+                    }
+                ]
+            }
+        else:
+            return {
+                "results": [
+                    {
+                        "content": "General range analysis involves identifying key support and resistance levels and price interaction with these zones.",
+                        "source": "Range_Analysis.md"
+                    }
+                ]
+            }

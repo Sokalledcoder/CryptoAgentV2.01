@@ -17,15 +17,16 @@ class Agent10_ActionPlan_Output(BaseModel):
     invalidation_triggers: List[InvalidationTrigger] = Field([], description="List of invalidation triggers or re-analysis conditions")
     notes: Optional[str] = Field(None, description="Additional notes on the execution plan")
 
-from google.adk.agent import Agent
+from google.adk.agents import LlmAgent # Corrected import
 import json
 
-class ActionPlanAgent(Agent):
+class ActionPlanAgent(LlmAgent): # Inherit from LlmAgent
     def __init__(self):
         super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Added model
             name="ActionPlanSpecialist",
             description="Defines clear action plan steps and specific invalidation triggers based on trade setup and confidence/risk assessment.",
-            output_model=Agent10_ActionPlan_Output,
+            output_schema=Agent10_ActionPlan_Output, # Added output_schema
             tools=[] # No external tools for this agent
         )
 

@@ -21,16 +21,17 @@ class Agent8_TradeSetup_Output(BaseModel):
     scenarios: List[Scenario] = Field([], description="List of alternative scenarios or risks")
     notes: Optional[str] = Field(None, description="Additional notes or observations")
 
-from google.adk.agent import Agent
-import json
 
-class TradeSetupAgent(Agent):
+from google.adk.agents import LlmAgent # Corrected import
+from typing import Dict, Any
+
+class TradeSetupAgent(LlmAgent): # Inherit from LlmAgent
     def __init__(self):
         super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Added model
             name="TradeSetupSynthesizer",
-            description="Synthesizes analysis from previous agents to propose a high-probability trade setup (entry, stop, TP) based on weighted confluence.",
-            output_model=Agent8_TradeSetup_Output,
-            tools=[] # No external tools for this agent
+            description="Synthesizes trade setups based on analysis from previous agents.",
+            output_schema=Agent8_TradeSetup_Output # Added output_schema
         )
 
     async def run(self, context_from_previous_agents: Dict[str, Any]) -> Agent8_TradeSetup_Output:

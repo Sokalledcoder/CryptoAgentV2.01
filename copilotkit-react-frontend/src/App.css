@@ -1,42 +1,113 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+.App {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #282c34; /* Dark background for the whole app */
+  color: white;
+  font-family: sans-serif;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.App-header {
+  background-color: #1e222a; /* Slightly different dark shade for header */
+  padding: 20px;
+  color: white;
+  border-bottom: 1px solid #444;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.App-header h1 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 2em;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.upload-section {
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #3a3f47; /* Background for the upload section */
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  border: 1px solid #555;
 }
 
-.card {
-  padding: 2em;
+.upload-section input[type="file"] {
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background-color: #444951;
+  color: white;
+  cursor: pointer;
+  width: 90%; /* Make it responsive within the section */
+  max-width: 300px; /* Max width for the input */
 }
 
-.read-the-docs {
-  color: #888;
+.upload-section button {
+  padding: 12px 20px;
+  background-color: #007bff; /* A vibrant blue */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1em;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.upload-section button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+
+.upload-section button:disabled {
+  background-color: #555c63; /* Greyed out when disabled */
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: #ff6b6b; /* A light red for errors */
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.success-message {
+  color: #76c7c0; /* A teal/cyan for success */
+  margin-top: 10px;
+  font-size: 0.9em;
+}
+
+.success-message p {
+  margin: 5px 0;
+}
+
+.success-message a {
+  color: #87cefa; /* Light sky blue for links */
+  text-decoration: none;
+}
+
+.success-message a:hover {
+  text-decoration: underline;
+}
+
+.chat-container {
+  flex-grow: 1; /* Allows chat to take remaining space */
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px 20px 20px; /* Add some padding around chat */
+  max-width: 900px; /* Max width for chat container */
+  width: 100%;
+  margin: 0 auto; /* Center the chat container */
+  box-sizing: border-box;
+}
+
+/* Ensure CopilotChat component takes up available space if it's designed to */
+/* This might need adjustment based on @copilotkit/react-ui's internal styling */
+.chat-container > div { /* Assuming CopilotChat renders into a div */
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 }

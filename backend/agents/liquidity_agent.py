@@ -1,41 +1,29 @@
 from google.adk.agents import LlmAgent
+from google.adk.tools.function_tool import FunctionTool
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
 
-# Define tools needed for this agent
-async def file_search_tool(query: str) -> dict:
-    """
-    Simulates a RAG/FileSearch tool for querying knowledge base about FVG Order Blocks, 
-    AlgoAlpha Smart Money Breakout signals, etc.
-    """
-    print(f"[LiquidityAgent Tool] file_search_tool called with query: {query}")
-    
-    # Simulate responses based on common queries
-    if "fvg" in query.lower() or "order blocks" in query.lower() or "bigbeluga" in query.lower():
-        return {
-            "results": [
-                {
-                    "content": "FVG (Fair Value Gap) Order Blocks by BigBeluga identify imbalance zones where price moved quickly, leaving gaps. Strength percentage indicates the reliability of the zone. Bearish FVGs act as resistance, bullish FVGs as support. Higher strength percentages (>70%) indicate stronger zones.",
-                    "source": "FVG_Order_Blocks_BigBeluga.md"
-                }
-            ]
-        }
-    elif "algolpha" in query.lower() or "smart money" in query.lower() or "breakout" in query.lower():
-        return {
-            "results": [
-                {
-                    "content": "AlgoAlpha Smart Money Breakout signals include BOS (Break of Structure) and CHoCH (Change of Character). BOS indicates continuation of trend, CHoCH indicates potential reversal. These signals are marked at specific price levels where institutional activity is detected.",
-                    "source": "AlgoAlpha_Smart_Money_Breakout.md"
-                }
-            ]
-        }
-    else:
-        return {
-            "results": [
-                {
-                    "content": "General liquidity analysis involves identifying order flow imbalances, institutional activity zones, and breakout patterns.",
-                    "source": "Liquidity_Analysis.md"
-                }
-            ]
-        }
+# 1. Define Pydantic Models for Output Schema (Agent4_Liquidity_Output)
+class FVG(BaseModel):
+    top: float
+    bottom: float
+    type: Literal["bearish", "bullish"]
+    strength_pct: float = Field(..., ge=0, le=1) # Percentage between 0 and 1
+
+class OrderBlock(BaseModel): # Assuming a structure, can be refined
+    top: float
+    bottom: float
+    type: Literal["bearish", "bullish"]
+
+class BreakoutSignal(BaseModel):
+    type: Literal["CHoCH_up", "CHoCH_down", "BOS_up", "BOS_down"]
+    price_level: float
+
+class Agent4_Liquidity_Output(BaseModel):
+    fvgs: List[FVG] = Field(default_factory=list)
+    order_blocks: List[OrderBlock] = Field(default_factory=list)
+    breakout_signals: List[BreakoutSignal] = Field(default_factory=list)
+    notes: Optional[str] = None
 
 AGENT_INSTRUCTION_LIQUIDITY = """
 # 📈 Crypto TA Agent 4: Liquidity & Order-Flow Analyzer (RAG + CoT Enhanced - Refined)
@@ -66,47 +54,66 @@ AGENT_INSTRUCTION_LIQUIDITY = """
 
 ---
 
-## 📦 Output Schema (Agent4_Liquidity_Output - Verbose Example)
+## 📦 Output Schema (Agent4_Liquidity_Output - Verbose Example) - Defined as Pydantic Model
 
 Your response MUST be ONLY the following JSON structure (after PLAN/REFLECT steps). Lists are required.
-
-```json
-{
-  "fvgs": [
-    {
-      "top": 353.2,
-      "bottom": 349.8,
-      "type": "bearish",
-      "strength_pct": 0.78
-    },
-     {
-      "top": 341.4,
-      "bottom": 338.1,
-      "type": "bullish",
-      "strength_pct": 0.62
-    }
-  ],
-  "order_blocks": [],
-  "breakout_signals": [
-    {
-      "type": "CHoCH_up",
-      "price_level": 336.8
-    },
-    {
-      "type": "BOS_down",
-      "price_level": 336.8
-    }
-  ],
-  "notes": "Price consolidating within bearish FVG, above bullish FVG."
-}
 
 STOP: Generate ONLY the required JSON object after completing the PLAN/REFLECT steps. Ensure lists are present.
 """
 
-root_agent = LlmAgent(
-    model="gemini-2.5-flash-preview-05-20",
-    name="analyze_liquidity_orderflow",
-    description="Analyzes liquidity zones, FVGs, Order Blocks, and Smart Money Breakout signals using RAG context.",
-    instruction=AGENT_INSTRUCTION_LIQUIDITY,
-    tools=[file_search_tool]
-)
+class LiquidityAgent(LlmAgent):
+    def __init__(self):
+        super().__init__(
+            model="gemini-2.5-flash-preview-05-20", # Assuming vision capabilities
+            name="analyze_liquidity_orderflow",
+            description="Analyzes liquidity zones, FVGs, Order Blocks, and Smart Money Breakout signals using RAG context.",
+            instruction=AGENT_INSTRUCTION_LIQUIDITY,
+            output_schema=Agent4_Liquidity_Output
+        )
+
+        search_tool = FunctionTool(func=self._simulated_file_search)
+        search_tool.name = "file_search_tool"
+        search_tool.description = "Simulates a RAG/FileSearch tool for querying knowledge base about FVG Order Blocks, AlgoAlpha Smart Money Breakout signals, etc."
+        search_tool.input_schema = {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The search query for the knowledge base."}
+            },
+            "required": ["query"]
+        }
+        self.tools: List[FunctionTool] = [search_tool]
+
+    async def _simulated_file_search(self, query: str) -> dict:
+        """
+        Simulates a RAG/FileSearch tool for querying knowledge base.
+        """
+        print(f"[LiquidityAgent Tool SIMULATION] _simulated_file_search called with query: {query}")
+        
+        query_lower = query.lower()
+        if "fvg" in query_lower or "order blocks" in query_lower or "bigbeluga" in query_lower:
+            return {
+                "results": [
+                    {
+                        "content": "FVG (Fair Value Gap) Order Blocks by BigBeluga identify imbalance zones where price moved quickly, leaving gaps. Strength percentage indicates the reliability of the zone. Bearish FVGs act as resistance, bullish FVGs as support. Higher strength percentages (>70%) indicate stronger zones.",
+                        "source": "FVG_Order_Blocks_BigBeluga.md"
+                    }
+                ]
+            }
+        elif "algolpha" in query_lower or "smart money" in query_lower or "breakout" in query_lower:
+            return {
+                "results": [
+                    {
+                        "content": "AlgoAlpha Smart Money Breakout signals include BOS (Break of Structure) and CHoCH (Change of Character). BOS indicates continuation of trend, CHoCH indicates potential reversal. These signals are marked at specific price levels where institutional activity is detected.",
+                        "source": "AlgoAlpha_Smart_Money_Breakout.md"
+                    }
+                ]
+            }
+        else:
+            return {
+                "results": [
+                    {
+                        "content": "General liquidity analysis involves identifying order flow imbalances, institutional activity zones, and breakout patterns.",
+                        "source": "Liquidity_Analysis.md"
+                    }
+                ]
+            }
