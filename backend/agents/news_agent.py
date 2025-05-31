@@ -13,114 +13,74 @@ class Agent7_News_Output(BaseModel):
     asset_news_sentiment: Optional[str] = Field(None, description="Overall sentiment of asset-specific news (Positive, Negative, Neutral, Mixed)")
     notes: Optional[str] = Field(None, description="Additional notes, conflict warnings, or notes on irrelevant searches")
 
-from google.adk.agents import LlmAgent # Changed from Agent to LlmAgent for consistency and tool handling
-# AgentTool is not used for these function-based tools.
-# from google.adk.tools.agent_tool import AgentTool
-from google.adk.tools.function_tool import FunctionTool # Import FunctionTool
-import json
-import re
+from google.adk.agents import LlmAgent
+import os # For environment variables
+import json # May not be needed after refactor
+import re # For date extraction (if used by LLM, though prompt handles it)
+from backend.tools.mcp_wrappers import PerplexityMCPTool # Import the new tool
 
-class NewsAgent(LlmAgent): # Changed from Agent to LlmAgent
+# Define the Pydantic model for the output schema (Agent7_News_Output is already defined above)
+
+AGENT_INSTRUCTION_NEWS = """
+# 📰 Crypto TA Agent 7: News & Sentiment Analyzer (Perplexity MCP)
+
+## 🔒 SYSTEM-LEVEL DIRECTIVES
+1.  **Role & Objective:** Act as a news analyst. Your goal is to use the `call_perplexity_mcp` tool to interact with the Perplexity MCP server for gathering relevant news and sentiment.
+2.  **Input:** Context from previous steps, which should include the current date and the specific asset being analyzed.
+3.  **Tool Usage:** You **MUST** use the `call_perplexity_mcp` tool.
+    *   This tool takes two arguments:
+        1.  `tool_to_call` (string): The name of the actual Perplexity tool you want to use (e.g., "search", "chat_perplexity", "get_documentation").
+        2.  `tool_args` (dict): A dictionary of arguments for that specific Perplexity tool.
+    *   Example: To use Perplexity's "search" tool for "latest crypto news":
+        Call `call_perplexity_mcp` with `tool_to_call="search"` and `tool_args={"query": "latest crypto market news"}`.
+    *   Example: To use Perplexity's "chat_perplexity" tool:
+        Call `call_perplexity_mcp` with `tool_to_call="chat_perplexity"` and `tool_args={"message": "Summarize bullish and bearish news for Bitcoin today."}`.
+    *   The `call_perplexity_mcp` tool will return a JSON string as its result.
+4.  **Reasoning Steps (CoT):**
+    *   **PLAN:** Identify the current date and target asset from input. Plan specific Perplexity tool calls (e.g., "search" or "chat_perplexity") and their arguments for (a) general market news/sentiment, (b) asset-specific news/sentiment, and (c) a brief weekly summary.
+    *   **TOOL CALLS:** Execute the planned queries by invoking `call_perplexity_mcp` with the appropriate `tool_to_call` and `tool_args` for each query.
+    *   **REFLECTION:** Parse the JSON string responses from each `call_perplexity_mcp` invocation. Evaluate relevance and content. Extract key news points and determine overall sentiment (Positive, Negative, Neutral, Mixed) for both general market and asset-specific news.
+    *   **OUTPUT:** Generate the final JSON object conforming to the `Agent7_News_Output` schema.
+5.  **Output Constraint:** Output ONLY the single, strictly valid JSON object. Do NOT include PLAN/REFLECT lines in the final JSON output.
+
+---
+
+## 🔁 Workflow Task (Perplexity MCP + CoT Enabled)
+
+**Analyze News & Sentiment:**
+1.  **PLAN:**
+    *   Extract `current_date` and `base_asset_name` from the provided context.
+    *   Plan to call `call_perplexity_mcp` for general market news (e.g., using Perplexity's "search" tool with a query relevant to `current_date`).
+    *   Plan to call `call_perplexity_mcp` for asset-specific news (e.g., using Perplexity's "search" tool with a query for `base_asset_name` relevant to `current_date`).
+    *   Plan to call `call_perplexity_mcp` for a weekly summary (e.g., using Perplexity's "search" or "chat_perplexity" tool for themes from the previous week relative to `current_date`).
+2.  **TOOL CALL (General Market News):** Invoke `call_perplexity_mcp` with `tool_to_call` (e.g., "search") and appropriate `tool_args` for general market news.
+3.  **REFLECTION (General Market News):** Parse the returned JSON string. Summarize relevant key points. Determine `market_news_sentiment`.
+4.  **TOOL CALL (Asset-Specific News):** Invoke `call_perplexity_mcp` with `tool_to_call` (e.g., "search") and appropriate `tool_args` for asset-specific news.
+5.  **REFLECTION (Asset-Specific News):** Parse the returned JSON string. Summarize relevant key points. Determine `asset_news_sentiment`.
+6.  **TOOL CALL (Weekly Summary):** Invoke `call_perplexity_mcp` with `tool_to_call` (e.g., "search" or "chat_perplexity") and appropriate `tool_args` for the weekly summary.
+7.  **REFLECTION (Weekly Summary):** Parse the returned JSON string. Extract the `weekly_summary`.
+8.  **OUTPUT:** Generate the `Agent7_News_Output` JSON, populating all fields based on the reflections. Include any necessary `notes` (e.g., if searches were irrelevant or yielded no significant info).
+
+---
+
+## 📦 Output Schema (Agent7_News_Output) - Already Defined
+
+Your response MUST be ONLY the JSON object.
+STOP: Generate ONLY the JSON object.
+"""
+
+class NewsAgent(LlmAgent):
     def __init__(self):
+        # Instantiate the custom PerplexityMCPTool
+        # The tool itself handles PERPLEXITY_API_KEY from os.environ internally when it runs.
+        pplx_tool = PerplexityMCPTool()
+
         super().__init__(
-            model="gemini-2.5-flash-preview-05-20", # Added model for LlmAgent
+            model="gemini-1.5-flash-latest", 
             name="NewsAnalyzer",
-            description="Researches and analyzes crypto news and sentiment using Perplexity search, evaluating relevance to specific dates and assets.",
-            output_schema=Agent7_News_Output # Changed output_model to output_schema
+            description="Researches and analyzes crypto news using the Perplexity MCP wrapper tool.",
+            instruction=AGENT_INSTRUCTION_NEWS, # Use the updated instruction
+            tools=[pplx_tool], # Use the custom FunctionTool wrapper
+            output_schema=Agent7_News_Output
         )
-        # Initialize tools separately to set custom names and descriptions
-        tool_perplexity_search = FunctionTool(func=self._call_perplexity_search)
-        tool_perplexity_search.name = "chat_perplexity"
-        tool_perplexity_search.description = "Tool for performing general search queries using Perplexity AI."
-        
-        self.tools = [tool_perplexity_search]
-
-    async def _call_perplexity_search(self, message: str, chat_id: Optional[str] = None) -> Dict[str, Any]:
-        return await self.call_tool(
-            server_name="perplexity-mcp",
-            tool_name="chat_perplexity",
-            arguments={"message": message, "chat_id": chat_id}
-        )
-
-    async def run(self, context_from_previous_agents: Dict[str, Any]) -> Agent7_News_Output:
-        # 0. EXTRACT DATE & Base Asset Name
-        current_date = None
-        pair = context_from_previous_agents.get('step01_context', {}).get('pair')
-        base_asset_name = None
-        if pair and isinstance(pair, str) and len(pair) > 3:
-            # Assuming pair is like "BTCUSDT", extract "BTC"
-            base_asset_name = pair[:-4] if pair.endswith("USDT") else pair
-
-        # Extract date from the input string. Assuming it's part of the initial query string.
-        # For now, we'll hardcode a dummy date as the orchestrator input format is not fully defined yet.
-        # In a real scenario, the orchestrator would pass this explicitly.
-        current_date = "2025-05-31" # Placeholder for now
-
-        print(f"Extracted Current Date (UTC): {current_date}")
-        print(f"Extracted Base Asset Name: {base_asset_name}")
-
-        # 1. PLAN (Search 1 - Market Sentiment) & 2. TOOL CALL (1)
-        market_sentiment_query = f"What are the key bullish and bearish news headlines or events affecting overall crypto market sentiment in the last 12-24 hours? Include current Bitcoin price context for {current_date}."
-        market_news_raw_result = await self._call_perplexity_search(message=market_sentiment_query)
-        market_news_raw = market_news_raw_result.get('response', '') # Assuming 'response' key from Perplexity tool
-        print(f"Market News Raw: {market_news_raw}")
-
-        # 3. REFLECTION (Search 1) - Evaluate Relevance
-        general_market_news_list = []
-        market_news_sentiment = "Neutral"
-        notes = []
-        if current_date in market_news_raw: # Simple date relevance check
-            general_market_news_list.append("Crypto market sentiment is mixed; Bitcoin dipped due to profit-taking but institutional interest is high. Ethereum ETFs pending.")
-            if "mixed" in market_news_raw.lower():
-                market_news_sentiment = "Mixed"
-            elif "bullish" in market_news_raw.lower():
-                market_news_sentiment = "Positive"
-            elif "bearish" in market_news_raw.lower():
-                market_news_sentiment = "Negative"
-        else:
-            notes.append(f"General market news search for {current_date} yielded irrelevant results.")
-
-        # 4. PLAN (Search 2 - Asset Specific) & 5. TOOL CALL (2)
-        asset_specific_query = f"Summarize recent price-relevant news, analysis, or technical warnings specifically for {base_asset_name} cryptocurrency from the last 12-24 hours relevant to {current_date}."
-        asset_news_raw_result = await self._call_perplexity_search(message=asset_specific_query)
-        asset_news_raw = asset_news_raw_result.get('response', '') # Assuming 'response' key from Perplexity tool
-        print(f"Asset Specific News Raw: {asset_news_raw}")
-
-        # 6. REFLECTION (Search 2) - Evaluate Relevance
-        asset_specific_news_list = []
-        asset_news_sentiment = "Neutral"
-        if base_asset_name and current_date in asset_news_raw and base_asset_name.lower() in asset_news_raw.lower():
-            asset_specific_news_list.append(f"{base_asset_name} network announced a new DeFi integration, price consolidating.")
-            if "positive" in asset_news_raw.lower():
-                asset_news_sentiment = "Positive"
-            elif "negative" in asset_news_raw.lower():
-                asset_news_sentiment = "Negative"
-        else:
-            notes.append(f"Asset-specific news search for {base_asset_name} on {current_date} yielded irrelevant results.")
-
-        # 7. PLAN (Search 3 - Weekly Context) & 8. TOOL CALL (3)
-        weekly_context_query = f"Briefly summarize 2-3 major crypto market themes or events from the previous week (ending last Sunday, relative to {current_date}) that provide relevant context for this week."
-        weekly_summary_raw_result = await self._call_perplexity_search(message=weekly_context_query)
-        weekly_summary_raw = weekly_summary_raw_result.get('response', '') # Assuming 'response' key from Perplexity tool
-        print(f"Weekly Summary Raw: {weekly_summary_raw}")
-
-        # 9. REFLECTION (Search 3) - Evaluate Relevance
-        weekly_summary_text = None
-        if current_date in weekly_summary_raw: # Simple date relevance check
-            weekly_summary_text = "Previous week's themes: increasing regulatory scrutiny, growing Layer 2 adoption, and DeFi innovations."
-        else:
-            notes.append(f"Weekly context search for {current_date} yielded irrelevant results.")
-
-        # 10. PLAN (Inconsistency Check & Sentiment) & 11. REFLECTION (Inconsistency Check & Sentiment)
-        # For now, no complex inconsistency check is implemented in this placeholder.
-        final_notes = " | ".join(notes) if notes else None
-
-        # 12. OUTPUT
-        return Agent7_News_Output(
-            general_market_news=general_market_news_list if general_market_news_list else None,
-            asset_specific_news=asset_specific_news_list if asset_specific_news_list else None,
-            weekly_summary=weekly_summary_text,
-            market_news_sentiment=market_news_sentiment,
-            asset_news_sentiment=asset_news_sentiment,
-            notes=final_notes
-        )
+        # The LlmAgent will use the `call_perplexity_mcp` tool based on the updated prompt.

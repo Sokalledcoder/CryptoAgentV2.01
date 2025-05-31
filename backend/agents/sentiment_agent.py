@@ -1,10 +1,12 @@
 from google.adk.agents import LlmAgent
-# AgentTool is not used for these function-based tools.
-# from google.adk.tools.agent_tool import AgentTool 
-from google.adk.tools.function_tool import FunctionTool # Import FunctionTool
-from typing import Dict, Any
-
-# Define the Pydantic model for the output schema (assuming it's defined elsewhere or will be defined here)
+from typing import Dict, Any # May not be needed after refactor
+from backend.tools.mcp_wrappers import ( # Import new tools
+    FearAndGreed_GetCurrentTool,
+    FearAndGreed_InterpretValueTool,
+    FearAndGreed_CompareHistoricalTool,
+    CoinGecko_GlobalMarketDataTool
+)
+# Define the Pydantic model for the output schema
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -26,13 +28,18 @@ class SentimentAgent(LlmAgent):
 # 📈 Crypto TA Agent 6: Sentiment & Macro Analyzer (MCP + CoT Enabled)
 
 ## 🔒 SYSTEM-LEVEL DIRECTIVES
-1.  **Role & Objective:** Analyst focused on gathering crypto market sentiment (F&G) and global data (BTC Dom, MktCap) using MCP tools. Output structured JSON.
+1.  **Role & Objective:** Analyst focused on gathering crypto market sentiment (F&G) and global data (BTC Dom, MktCap) using specific wrapper tools. Output structured JSON.
 2.  **Input:** Context from previous steps.
-3.  **Tool Usage:** Access to Fear & Greed MCP tools (`mcp_fearandgreed_*`) and CoinGecko MCP tool (`global-market-data`). **MUST use these tools.**
+3.  **Tool Usage:** You have access to the following tools:
+    *   `fetch_fearandgreed_current`: Gets current F&G value.
+    *   `interpret_fearandgreed_value`: Interprets an F&G value.
+    *   `compare_fearandgreed_historical`: Compares F&G to historical data.
+    *   `fetch_coingecko_global_market_data`: Gets BTC dominance and total market cap.
+    **MUST use these tools.**
 4.  **Reasoning Steps:** You MUST use the following reasoning steps:
     *   **PLAN:** State plan (call F&G tools, call Global Data tool, reflect, output JSON).
-    *   **TOOL CALLS:** Invoke `mcp_fearandgreed_get_current`, `mcp_fearandgreed_interpret_value`, `mcp_fearandgreed_compare_with_historical`, and `global-market-data`.
-    *   **REFLECTION:** Briefly summarize the retrieved F&G value/rating/comparison and the BTC Dom/Market Cap values.
+    *   **TOOL CALLS:** Invoke `fetch_fearandgreed_current`, then `interpret_fearandgreed_value` (with the value from the first call), then `compare_fearandgreed_historical`, and finally `fetch_coingecko_global_market_data`.
+    *   **REFLECTION:** Briefly summarize the retrieved F&G value/rating/comparison and the BTC Dom/Market Cap values from the JSON string responses of the tools.
     *   **OUTPUT:** Generate the final JSON.
 5.  **Output Constraint:** Output ONLY the single, strictly valid JSON object conforming to `Agent6_Sentiment_Output` schema. Do NOT include PLAN/REFLECT lines in the final JSON output.
 
@@ -41,13 +48,13 @@ class SentimentAgent(LlmAgent):
 ## 🔁 Workflow Task (MCP + CoT Enabled)
 
 **Analyze Sentiment & Macro Context:**
-1.  **PLAN:** Plan to call the three Fear & Greed tools for current value, rating, and historical context. Then call the global-market-data tool for BTC dominance and total market cap. Reflect on the gathered data. Generate final JSON.
-2.  **TOOL CALL (1/4):** Invoke `mcp_fearandgreed_get_current`.
-3.  **TOOL CALL (2/4):** Invoke `mcp_fearandgreed_interpret_value` (using value from previous call).
-4.  **TOOL CALL (3/4):** Invoke `mcp_fearandgreed_compare_with_historical`.
-5.  **TOOL CALL (4/4):** Invoke `global_market_data`.
-6.  **REFLECTION:** Note the F&G value, rating, and historical comparison notes from tool results. Note the BTC dominance % and total market cap string from the global data tool result.
-7.  **OUTPUT:** Generate the `Agent6_Sentiment_Output` JSON, populating fields from the tool results obtained during Reflection. Add brief summary `notes`.
+1.  **PLAN:** Plan to call `fetch_fearandgreed_current`, then `interpret_fearandgreed_value`, then `compare_fearandgreed_historical`, and `fetch_coingecko_global_market_data`. Reflect on the gathered data from their JSON string responses. Generate final JSON.
+2.  **TOOL CALL (1/4):** Invoke `fetch_fearandgreed_current`.
+3.  **TOOL CALL (2/4):** Invoke `interpret_fearandgreed_value` (using value from the JSON string response of the previous call).
+4.  **TOOL CALL (3/4):** Invoke `compare_fearandgreed_historical`.
+5.  **TOOL CALL (4/4):** Invoke `fetch_coingecko_global_market_data`.
+6.  **REFLECTION:** Parse the JSON string responses from each tool. Note the F&G value, rating, and historical comparison notes. Note the BTC dominance % and total market cap string.
+7.  **OUTPUT:** Generate the `Agent6_Sentiment_Output` JSON, populating fields from the parsed tool results obtained during Reflection. Add brief summary `notes`.
 
 ---
 
@@ -67,90 +74,24 @@ Your response MUST be ONLY the following JSON structure (after PLAN/REFLECT step
 
 STOP: Generate ONLY the JSON object described above after completing the PLAN/REFLECT steps using the specified MCP tools.
 """,
-            output_schema=Agent6_Sentiment_Output # Changed to output_schema
+            output_schema=Agent6_Sentiment_Output # Output schema remains the same
         )
-        # Initialize tools separately to set custom names and descriptions
-        tool_get_current = FunctionTool(func=self._call_mcp_fearandgreed_get_current)
-        tool_get_current.name = "mcp_fearandgreed_get_current"
-        tool_get_current.description = "Gets the current Fear and Greed Index value."
-
-        tool_interpret_value = FunctionTool(func=self._call_mcp_fearandgreed_interpret_value)
-        tool_interpret_value.name = "mcp_fearandgreed_interpret_value"
-        tool_interpret_value.description = "Interprets a Fear and Greed Index value."
-
-        tool_compare_historical = FunctionTool(func=self._call_mcp_fearandgreed_compare_with_historical)
-        tool_compare_historical.name = "mcp_fearandgreed_compare_with_historical"
-        tool_compare_historical.description = "Compares current Fear and Greed Index with historical data."
-
-        tool_global_market_data = FunctionTool(func=self._call_global_market_data)
-        tool_global_market_data.name = "global_market_data"
-        tool_global_market_data.description = "Gets global cryptocurrency market data including BTC dominance and total market cap."
+        
+        # Instantiate the custom FunctionTool wrappers
+        fg_current_tool = FearAndGreed_GetCurrentTool()
+        fg_interpret_tool = FearAndGreed_InterpretValueTool()
+        fg_compare_tool = FearAndGreed_CompareHistoricalTool()
+        cg_global_data_tool = CoinGecko_GlobalMarketDataTool()
 
         self.tools = [
-            tool_get_current,
-            tool_interpret_value,
-            tool_compare_historical,
-            tool_global_market_data
+            fg_current_tool,
+            fg_interpret_tool,
+            fg_compare_tool,
+            cg_global_data_tool
         ]
+        # The LlmAgent will use these tools based on the updated prompt.
 
-    async def _call_mcp_fearandgreed_get_current(self, random_string: str = "dummy") -> Dict[str, Any]:
-        return await self.call_tool(
-            server_name="fearandgreed-mcp",
-            tool_name="mcp_fearandgreed_get_current",
-            arguments={"random_string": random_string}
-        )
-
-    async def _call_mcp_fearandgreed_interpret_value(self, value: int) -> Dict[str, Any]:
-        return await self.call_tool(
-            server_name="fearandgreed-mcp",
-            tool_name="mcp_fearandgreed_interpret_value",
-            arguments={"value": value}
-        )
-
-    async def _call_mcp_fearandgreed_compare_with_historical(self, days: int = 30) -> Dict[str, Any]:
-        return await self.call_tool(
-            server_name="fearandgreed-mcp",
-            tool_name="mcp_fearandgreed_compare_with_historical",
-            arguments={"days": days}
-        )
-
-    async def _call_global_market_data(self, include_defi: bool = False) -> Dict[str, Any]:
-        return await self.call_tool(
-            server_name="coingecko-mcp",
-            tool_name="global-market-data",
-            arguments={"include_defi": include_defi}
-        )
-
-    async def run(self, context_from_previous_steps: Dict[str, Any]) -> Agent6_Sentiment_Output:
-        print("PLAN: Calling Fear & Greed Index and CoinGecko global market data tools. Reflecting on results and generating structured JSON output.")
-
-        # TOOL CALLS
-        fg_current_result = await self._call_mcp_fearandgreed_get_current()
-        fg_value = fg_current_result.get('value')
-
-        fg_interpret_result = await self._call_mcp_fearandgreed_interpret_value(value=fg_value)
-        fg_historical_result = await self._call_mcp_fearandgreed_compare_with_historical()
-        global_market_result = await self._call_global_market_data()
-
-        # REFLECTION
-        fear_greed_value = fg_value
-        fear_greed_rating = fg_interpret_result.get('classification')
-        historical_comparison_notes = fg_historical_result.get('notes')
-
-        btc_dominance = global_market_result.get('data', {}).get('market_cap_percentage', {}).get('btc')
-        total_market_cap_usd = global_market_result.get('data', {}).get('total_market_cap', {}).get('usd')
-        total_market_cap_str = f"${total_market_cap_usd:,.2f}" if total_market_cap_usd else None
-
-        notes = "Sentiment and macro data retrieved from Fear & Greed Index and CoinGecko MCP servers."
-
-        # OUTPUT
-        return Agent6_Sentiment_Output(
-            fear_greed_value=fear_greed_value,
-            fear_greed_rating=fear_greed_rating,
-            historical_comparison_notes=historical_comparison_notes,
-            btc_dominance=btc_dominance,
-            total_market_cap=total_market_cap_str,
-            notes=notes
-        )
-
-root_agent = SentimentAgent()
+# The explicit root_agent instantiation might be for local testing or older patterns.
+# We can remove it if it's not directly used by the main application flow.
+# For now, let's comment it out to avoid potential side effects if this file is imported.
+# root_agent = SentimentAgent()

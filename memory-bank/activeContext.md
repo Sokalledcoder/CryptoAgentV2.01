@@ -1,72 +1,74 @@
-## Handoff Report: Crypto Technical Analysis Multi-Agent System (Pivoting to MCP Strategy)
+## Handoff Report: Crypto Technical Analysis Multi-Agent System (MCP Integration - Pattern 1)
 
 **Date of Handoff:** 2025-05-31
-**Project Version (Memory Bank):** `activeContext.md` (this report, v0.20), `progress.md` (v0.18, will be updated next).
-**Previous Handoff:** Report dated 2025-05-31 (v0.19, detailing agent refactoring for image URL consumption).
+**Project Version (Memory Bank):** `activeContext.md` (this report, v0.21), `progress.md` (v0.19, will be updated next).
+**Previous Handoff:** Report dated 2025-05-31 (v0.20, detailing ADK session fixes and initial MCP strategy pivot).
 
 **1. Current Work & Overall Mission:**
 *   **Mission:** Build a multi-agent system for cryptocurrency technical analysis using Google ADK (Python), FastAPI, and React/CopilotKit.
-*   **Current Stage:** Debugging initial ADK agent execution flow, specifically the `OrchestratorAgent` calling `ContextAgent`, and its internal tool calls. Pivoting to discuss MCP server integration strategy before further debugging.
-*   **Work Done This Session (Continuing from v0.19):**
-    *   **ADK Session Management Resolved:**
-        *   Iteratively debugged and fixed session errors in `backend/main.py`.
-        *   Confirmed `Runner.run_async()` requires `user_id` and `session_id` as keyword-only arguments.
-        *   Discovered (with user's research) that `InMemorySessionService.create_session()` is `async` and requires `app_name`, `user_id`, and `session_id` as keyword arguments in this ADK version.
-        *   Successfully patched `adk_orchestrator_action_handler` to `await session_service.create_session(...)` with all required arguments, resolving previous "Session not found" errors and `RuntimeWarning`s.
-    *   **Encountered Gemini API Error (Post-Session Fix):**
-        *   Once session issues were resolved, a `google.genai.errors.ClientError: 400 INVALID_ARGUMENT` ("Function calling with a response mime type: 'application/json' is unsupported") occurred. This happened when the `OrchestratorAgent` (LLM) attempted to call the `ContextAgent` (as a tool), likely due to `ContextAgent`'s `output_schema` implying a JSON response.
-    *   **Attempted Workaround for Gemini API Error:**
-        *   Modified `backend/agents/context_agent.py` by removing `output_schema` from `ContextAgent` to avoid the `application/json` MIME type declaration for the tool's response.
-    *   **Encountered `ContextAgent` Internal Tool Calling Error:**
-        *   After removing `output_schema`, the `ContextAgent` (when called by `OrchestratorAgent`) failed internally with `ValueError: Function _simulated_mcp_get_price is not found in the tools_dict.`. This indicated that the `ContextAgent`'s LLM was attempting to call its internal price-fetching tool using the Python function's actual name (`_simulated_mcp_get_price`) instead of its declared tool name.
-    *   **Last Action (Before Pivot):**
-        *   Updated `backend/agents/context_agent.py` to rename the internal tool to `fetch_current_price` and modified its prompt to use this new name, in an attempt to resolve the internal tool calling error. (The direct outcome of this very last change was not fully tested before deciding to pivot).
+*   **Current Stage:** Implementing MCP (Model Context Protocol) server integration for ADK agents, following a user-provided guide. The previous focus was on resolving ADK session issues and initial Gemini API limitations.
+*   **Work Done This Session (Continuing from v0.20):**
+    *   **MCP Integration Strategy Adopted:** Based on user feedback and a provided guide, "Pattern 1: Wrap each MCP binary directly with a custom `FunctionTool`" was chosen. This approach uses `anyio.create_subprocess` (or wrappers around it) to run existing STDIN/STDOUT MCP scripts and returns their output as JSON strings to the LLM, bypassing Gemini's "application/json" MIME type error for tool responses.
+    *   **Created `mcp_wrappers.py`:**
+        *   A new file `backend/tools/mcp_wrappers.py` was created.
+        *   It contains a helper function `_run_mcp` to execute STDIN/STDOUT processes (though `PerplexityMCPTool` uses a direct `anyio.create_subprocess` call to handle environment variable passing).
+        *   Specific `FunctionTool` classes were implemented in this file:
+            *   `CoinGeckoPriceTool`: Wraps CoinGecko's `get-price`.
+            *   `FearAndGreed_GetCurrentTool`, `FearAndGreed_InterpretValueTool`, `FearAndGreed_CompareHistoricalTool`: Wrap corresponding Fear & Greed MCP tools.
+            *   `CoinGecko_GlobalMarketDataTool`: Wraps CoinGecko's `global-market-data`.
+            *   `PerplexityMCPTool`: A generic wrapper for Perplexity MCP tools, taking `tool_to_call` and `tool_args`, and handling `PERPLEXITY_API_KEY` via `env` in `anyio.create_subprocess`.
+    *   **Refactored ADK Agents for MCP Integration (Pattern 1):**
+        *   `backend/agents/context_agent.py`: Updated to use `CoinGeckoPriceTool`. Removed previous `MCPToolSet` (and simulated tool) logic. Prompt updated.
+        *   `backend/agents/sentiment_agent.py`: Updated to use `FearAndGreed_GetCurrentTool`, `FearAndGreed_InterpretValueTool`, `FearAndGreed_CompareHistoricalTool`, and `CoinGecko_GlobalMarketDataTool`. Removed previous `MCPToolSet` logic. Prompt updated.
+        *   `backend/agents/news_agent.py`: Updated to use `PerplexityMCPTool`. Removed previous `MCPToolSet` logic. Prompt updated.
+    *   **Initial `ImportError` Debugging:** Investigated an `ImportError: cannot import name 'MCPToolSet'` which occurred when attempting to use ADK's built-in `MCPToolSet`. This involved checking ADK version (`1.1.1`), `mcp` library version (corrected from `1.9.2X` to `1.9.2`), and inspecting ADK/MCP library files. The persistence of this error, despite files appearing correct, contributed to adopting Pattern 1 from the user's guide as a more robust path forward for STDIN/STDOUT MCPs.
 
 **2. Key Technical Concepts & Decisions (Updated):**
-*   **ADK Session Management:** `InMemorySessionService.create_session()` is `async` and requires `app_name`, `user_id`, `session_id` (keyword arguments) in the current ADK version. `Runner.run_async()` also requires `user_id` and `session_id`. Pre-creating the session with `await` is crucial.
-*   **Gemini API Function Calling Limitation:** The Gemini API (specifically observed with `gemini-2.5-flash-preview-05-20`) does not support function/tool calls that are declared with a response MIME type of `application/json`. This impacts ADK `LlmAgent`s that use `output_schema` when they are wrapped as `AgentTool`s.
-*   **ADK `LlmAgent` Internal Tool Calling:** Potential issue where an `LlmAgent` (especially if `output_schema` is removed but it still has `FunctionTool`s) might have its LLM attempt to call internal tools by their Python function name rather than the explicitly set `FunctionTool.name`. This requires careful prompting and tool name definition.
-*   **MCP Server Integration Strategy:** User has indicated existing MCP servers are STDIN/STDOUT based and wants to discuss a new integration strategy. This is the new priority.
+*   **MCP Integration Pattern 1:** ADK `FunctionTool`s wrap direct calls to STDIN/STDOUT MCP executables using `anyio.create_subprocess`. Tool outputs are returned as JSON strings to the LLM.
+*   **Environment Variable Passing:** For `PerplexityMCPTool`, environment variables (`PERPLEXITY_API_KEY`, `PERPLEXITY_MODEL`) are passed to the subprocess via the `env` parameter of `anyio.create_subprocess`.
+*   **Gemini API `application/json` Workaround:** By having `FunctionTool`s return strings, the direct Gemini error related to JSON MIME types for tool responses is avoided. The LLM is then prompted to parse this string.
+*   **ADK `FunctionTool` Naming:** Prompts are updated to call the specific `name` of the registered `FunctionTool` wrapper.
 
-**3. Relevant Files and Code (Current State - Major Updates):**
+**3. Relevant Files and Code (Current State - Major Updates This Session):**
+*   **NEW FILE:**
+    *   `backend/tools/mcp_wrappers.py`
 *   **HEAVILY MODIFIED THIS SESSION:**
-    *   `backend/main.py` (Iterative fixes for ADK session handling in `adk_orchestrator_action_handler`).
-*   **MODIFIED THIS SESSION:**
-    *   `backend/agents/context_agent.py` (Removed `output_schema`; renamed internal tool to `fetch_current_price` and updated prompt).
-*   **(Files from v0.19, no new changes this segment):**
-    *   `backend/agents/momentum_agent.py`
-    *   `backend/agents/derivatives_agent.py`
-    *   `copilotkit-runtime-node/src/app/api/copilotkit/route.ts` (Verified, no changes)
+    *   `backend/agents/context_agent.py` (Switched from `MCPToolSet` attempt to Pattern 1 `FunctionTool` wrapper)
+    *   `backend/agents/sentiment_agent.py` (Switched from `MCPToolSet` attempt to Pattern 1 `FunctionTool` wrappers)
+    *   `backend/agents/news_agent.py` (Switched from `MCPToolSet` attempt to Pattern 1 `FunctionTool` wrapper)
+*   **(Files from v0.20, no new changes this segment unless indirectly affected by imports):**
+    *   `backend/main.py`
 
 **4. Problem Solving (Summary of this session):**
-*   Successfully diagnosed and resolved complex ADK session management errors by correctly identifying `async` nature and required arguments for `InMemorySessionService.create_session` and `Runner.run_async`.
-*   Identified a Gemini API limitation regarding JSON response MIME types for function calls.
-*   Attempted a workaround for the Gemini API error by modifying `ContextAgent`.
-*   Encountered and attempted to fix an issue with `ContextAgent`'s internal tool invocation.
-*   Pivoted strategy to address MCP server integration before further debugging current agent tool-call issues.
+*   Pivoted from attempting to use ADK's `MCPToolSet` (due to persistent `ImportError`) to implementing "Pattern 1" from user-provided documentation for STDIN/STDOUT MCP integration.
+*   Successfully defined and implemented `FunctionTool` wrappers for CoinGecko, Fear & Greed, and Perplexity MCPs.
+*   Refactored `ContextAgent`, `SentimentAgent`, and `NewsAgent` to utilize these new wrappers and updated their prompts accordingly.
 
-**5. Pending Tasks and Next Steps (New Focus):**
-1.  **Initiate New Chat/Task:** To discuss MCP server integration strategy. User has existing STDIN/STDOUT MCPs but wants to explore options for ADK integration.
-2.  **In the New Chat - MCP Discussion Points:**
-    *   Clarify how STDIN/STDOUT MCP servers are currently invoked.
-    *   Discuss preferred methods for ADK agents to communicate with MCPs (e.g., wrapping STDIN/STDOUT calls, building thin HTTP wrappers for existing MCPs, or re-implementing MCP logic directly as Python tools/ADK agents if simpler).
-    *   Define how ADK `FunctionTool`s within agents like `ContextAgent`, `NewsAgent`, `SentimentAgent` will call these (potentially new) MCP interfaces.
-3.  **(Deferred) Resolve `ContextAgent` internal tool call:** If the `fetch_current_price` rename didn't fix it, this will need revisiting after MCP strategy is clear.
-4.  **(Deferred) Address Gemini API `application/json` error:** If removing `output_schema` isn't a viable long-term solution for all agents, explore other ADK configurations or architectural patterns.
+**5. Pending Tasks and Next Steps (Focus for New Task/Session):**
+1.  **Testing MCP Integration:**
+    *   Thoroughly test the backend, ensuring `ContextAgent`, `SentimentAgent`, and `NewsAgent` can correctly execute their respective MCP tools via the new wrappers.
+    *   Verify that environment variables (especially `PERPLEXITY_API_KEY`) are correctly passed and used.
+    *   Monitor logs for any errors from `anyio.create_subprocess` or the MCP scripts themselves.
+2.  **Resolve Original `ContextAgent` Issues (Deferred from v0.20):**
+    *   The original `ValueError: Function _simulated_mcp_get_price is not found in the tools_dict` should now be resolved as `ContextAgent` uses the new `CoinGeckoPriceTool`. This needs verification.
+3.  **Address Gemini API `application/json` for Agent-as-Tool (Deferred from v0.20):**
+    *   If agents like `ContextAgent`, `SentimentAgent`, or `NewsAgent` (which now return JSON strings via their `output_schema` being effectively string-based due to LLM parsing the tool's string output) are themselves used as `AgentTool`s by the `OrchestratorAgent`, we need to ensure the `OrchestratorAgent`'s LLM is prompted to expect a JSON string and parse it, or we might still hit the Gemini limitation if an `output_schema` is re-introduced on these sub-agents. The user guide mentioned: "don’t declare `output_schema` on any agent you expose as a tool; instead ask the sub-agent to *write* JSON text in its prompt". This needs careful application.
+4.  **Full Orchestration Flow Testing:** Once individual MCP calls are working, test the end-to-end `OrchestratorAgent` workflow.
+5.  **Memory Bank Update & GitHub Commit:** (This is being done now).
 
 **6. System Architecture Status:**
-*   **✅ RESOLVED**: ADK Session Management in `backend/main.py`.
-*   **⚠️ CURRENT BLOCKER (Execution Path):** `ContextAgent`'s internal tool (`fetch_current_price`) invocation was failing (LLM requesting `_simulated_mcp_get_price`). Last attempt was to rename tool and prompt.
-*   **⚠️ KNOWN LIMITATION:** Gemini API's incompatibility with `application/json` response MIME type for function calls, impacting `LlmAgent`s with `output_schema` when used as tools.
-*   **🔄 NEXT (Strategic Pivot):** Discuss and define MCP server integration strategy.
+*   **✅ RESOLVED (Potentially):** `ImportError` for `MCPToolSet` by switching to Pattern 1.
+*   **✅ IMPLEMENTED:** MCP integration for CoinGecko, Fear & Greed, Perplexity using custom `FunctionTool` wrappers for STDIN/STDOUT communication.
+*   **🔄 NEXT (Testing):** Verify functionality of the new MCP integration.
+*   **⚠️ KNOWN LIMITATION (Still relevant for Agent-as-Tool):** Gemini API's incompatibility with `application/json` response MIME type for function calls, if ADK `LlmAgent`s with `output_schema` are used as tools by other LLM-based agents.
 
-**7. Critical Files Modified This Session (v0.20):**
-*   `backend/main.py`
+**7. Critical Files Modified This Session (v0.21):**
+*   `backend/tools/mcp_wrappers.py` (New)
 *   `backend/agents/context_agent.py`
+*   `backend/agents/sentiment_agent.py`
+*   `backend/agents/news_agent.py`
 
 **8. Key Learnings for Future Development (This Session):**
-*   **ADK `InMemorySessionService` (for v0.6.0+):** `create_session` and `get_session` are `async` methods. `create_session` requires `app_name`, `user_id`, and `session_id` as keyword-only arguments. Always `await` these calls.
-*   **ADK `Runner.run_async`:** Requires `user_id` and `session_id` as keyword-only arguments in this ADK version.
-*   **Gemini API Function Calling:** Be aware of limitations, such as the unsupported `application/json` response MIME type. This can affect how ADK agents with `output_schema` are used as tools.
-*   **ADK `LlmAgent` Tool Naming:** LLMs might unexpectedly try to call internal tools by their Python function name (`func.__name__`) rather than the `FunctionTool(name="...")`. Ensure prompts are very clear and tool names are robust. If issues persist, aligning `FunctionTool.name` with `func.__name__` could be a fallback.
-*   **Debugging Iteration:** Complex issues often require iterative changes and careful log analysis. User feedback and research are invaluable.
+*   **Alternative MCP Integration:** When built-in library mechanisms (like `MCPToolSet`) prove problematic due to versioning or environment subtleties, direct wrapping of STDIN/STDOUT processes via `anyio.create_subprocess` within custom `FunctionTool`s is a viable and flexible alternative (Pattern 1).
+*   **Environment Variables with `anyio`:** `anyio.create_subprocess` allows passing custom environment variables to child processes, crucial for tools requiring API keys.
+*   **LLM Prompting for String Parsing:** When tools return JSON as a string (to bypass API limitations), the LLM must be explicitly prompted to parse this string.
